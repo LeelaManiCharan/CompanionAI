@@ -1,0 +1,876 @@
+{
+  "pbtResults": {
+    "7.5 Write property test for encrypt/decrypt round-trip": {
+      "status": "passed",
+      "lastRunTimestamp": 1792234434021
+    },
+    "7.3 Write property test for backup round-trip and determinism": {
+      "status": "passed",
+      "lastRunTimestamp": 1792234810015
+    }
+  },
+  "executionHistory": {
+    "1.1 Create project scaffolding and tooling config": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232108303
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232129122
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232991232
+      }
+    ],
+    "2.1 Implement zod models and input validators": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232108666
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233000906
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233629378
+      }
+    ],
+    "2.2 Implement `maskKey` and `redactSecrets` in `src/core/secrets.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232108849
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233684808
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234086911
+      }
+    ],
+    "3.1 Implement `normalizeForMatch` and `detectCrisis` in `src/core/safety.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232108995
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233693390
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234088224
+      }
+    ],
+    "3.2 Implement `buildContext`, `rankMemories`, `trimToByteBudget` in `src/core/context.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232109270
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234099778
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234361003
+      }
+    ],
+    "4.1 Implement `parseExtraction`, `mergeMemories`, `appendCapped`, `forgetChat` in `src/core/memory.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232109432
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233694658
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234089859
+      }
+    ],
+    "5.1 Implement `localDate`, `computePreferredTime`, `resolveLocalTime`, `evaluateSchedule`, `activeSecondsOnDate` in `src/core/schedule.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232109584
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233696520
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234091455
+      }
+    ],
+    "6.1 Implement `select` in `src/core/providerSelect.ts` and `pickActiveProfile`, `homeChatList`, `sortMessages` in `src/core/selectors.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232109916
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792233698109
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234093435
+      }
+    ],
+    "6.2 Implement the pure call reducer in `src/core/callMachine.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232110498
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234094650
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234362941
+      }
+    ],
+    "7.1 Implement `serializeBackup` / `parseBackup` in `src/core/backup.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232111128
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234096477
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234363495
+      }
+    ],
+    "7.2 Implement `encryptBackup` / `decryptBackup` in `src/core/crypto.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232111282
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234098080
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234365067
+      }
+    ],
+    "7.3 Write property test for backup round-trip and determinism": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232111745
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234366539
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234834289
+      }
+    ],
+    "7.5 Write property test for encrypt/decrypt round-trip": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232112264
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234367866
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234834037
+      }
+    ],
+    "8. Checkpoint - core modules": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232112434
+      }
+    ],
+    "9.1 Implement DB schema, open, and migrations in `src/data/db.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232112588
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234369346
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234835886
+      }
+    ],
+    "9.2 Implement repository and live queries in `src/data/repository.ts` and `src/data/useLiveQuery.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232113000
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234838890
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235518452
+      }
+    ],
+    "10.1 Implement server helpers in `src/server/`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232113461
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234370499
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234837258
+      }
+    ],
+    "10.2 Implement `handleGenerate` and route files": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232113605
+      },
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234840089
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235518503
+      }
+    ],
+    "10.3 Write property test for generate route request validation": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232113742
+      }
+    ],
+    "11.1 Implement `src/services/profileService.ts` and `src/services/settingsService.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232113876
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235519054
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236168571
+      }
+    ],
+    "12.1 Implement providers in `src/services/providers/ollama.ts` and `src/services/providers/gemini.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114063
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235520666
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236169369
+      }
+    ],
+    "12.2 Implement `src/services/modelRouter.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114201
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235522249
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236171000
+      }
+    ],
+    "13.1 Implement `src/services/chatService.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114346
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236178561
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236694392
+      }
+    ],
+    "13.2 Implement `src/services/memoryService.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114481
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236180156
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236694614
+      }
+    ],
+    "13.3 Implement `src/services/chatDeletion.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114662
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236181575
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236695107
+      }
+    ],
+    "13.4 Write property test for forgetting invariant": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114817
+      }
+    ],
+    "13.5 Write property test for no cross-profile writes": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232114962
+      }
+    ],
+    "14.1 Implement `src/services/activityTracker.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115133
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236183188
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236696362
+      }
+    ],
+    "14.2 Implement `src/services/scheduler.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115283
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236184433
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236697956
+      }
+    ],
+    "15. Checkpoint - data, server, services": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115413
+      }
+    ],
+    "16.1 Implement UI primitives in `src/components/ui/`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115554
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235523910
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236172403
+      }
+    ],
+    "16.2 Implement `AppRoot`, safety/provider components, and layout wiring": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115700
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236699484
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237426650
+      }
+    ],
+    "17.1 Implement `src/app/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232115840
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237426812
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238846334
+      }
+    ],
+    "18.1 Implement `src/app/chat/page.tsx`, `src/app/chat/[id]/page.tsx`, and `src/components/chat/`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116007
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237427406
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238846487
+      }
+    ],
+    "19.1 Implement speech adapter and call controller in `src/services/voice/`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116148
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237428613
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238846699
+      }
+    ],
+    "19.2 Implement `src/app/call/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116301
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237430186
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238848269
+      }
+    ],
+    "20.1 Implement `src/app/settings/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116447
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237431565
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238849529
+      }
+    ],
+    "21.1 Implement `src/app/memories/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116562
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237433101
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238851114
+      }
+    ],
+    "21.2 Implement `src/app/activity/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116697
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237434752
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238852321
+      }
+    ],
+    "21.3 Implement `src/app/profiles/page.tsx`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116818
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792237435946
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238853926
+      }
+    ],
+    "22.1 Implement `src/services/notifications.ts` and `public/sw.js`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232116937
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235526675
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236173980
+      }
+    ],
+    "22.2 Wire notifications into scheduler, Settings toggle, and AppRoot": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117108
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238855745
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239296716
+      }
+    ],
+    "23.1 Implement `src/services/tabCoordinator.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117254
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235525055
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236175588
+      }
+    ],
+    "23.2 Wire Tab_Coordinator into repository, AppRoot, scheduler, call controls, and views": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117378
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238857541
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239296928
+      }
+    ],
+    "24.1 Implement `src/services/backupService.ts`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117510
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235528137
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236176939
+      }
+    ],
+    "24.2 Implement backup UI and wire it into Settings, Home, and the zero-profile screen": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117646
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238859164
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239298342
+      }
+    ],
+    "25. Checkpoint - full app": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117796
+      }
+    ],
+    "26.1 Write `README.md`": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232117906
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238860338
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239299560
+      }
+    ],
+    "26.2 Add client bundle secret check": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232118012
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792238861608
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239300564
+      }
+    ],
+    "26.3 Initialize git and create the initial local commit": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232118112
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239301796
+      }
+    ],
+    "27. Final checkpoint": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232118249
+      }
+    ],
+    "1. Scaffold the Next.js project at the workspace root": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792232991296
+      }
+    ],
+    "2. Core data models, validators, and secret helpers": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234086994
+      }
+    ],
+    "4. Memory core logic": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234089990
+      }
+    ],
+    "5. Scheduling core logic": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234091558
+      }
+    ],
+    "3. Safety_Monitor and Context_Builder": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234361135
+      }
+    ],
+    "6. Provider selection, list selectors, and call state machine": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234363043
+      }
+    ],
+    "7. Backup serializer and crypto framing": [
+      {
+        "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792234834382
+      }
+    ],
+    "9. Data layer (IndexedDB repository)": [
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792235518566
+      }
+    ],
+    "11. Profile and settings services": [
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236168672
+      }
+    ],
+    "12. Model_Router and providers": [
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792236171079
+      }
+    ]
+  }
+}
