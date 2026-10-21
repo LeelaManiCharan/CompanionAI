@@ -4,13 +4,13 @@ import { AppShell, useActiveProfile, useSettings } from "@/components/app";
 import {
   BackupSummaryCard,
   CheckInHeroCard,
-  CheckInPromptBanner,
   QuickLinksCard,
   RecentChatsCard,
+  UpcomingRemindersCard,
   dayPart,
   useNow,
 } from "@/components/home";
-import { InlineAlert } from "@/components/ui";
+import { InlineAlert, Reveal } from "@/components/ui";
 import { localDate } from "@/core/schedule";
 import { homeChatList } from "@/core/selectors";
 import { useLiveQuery, useRepo } from "@/data/useLiveQuery";
@@ -33,10 +33,11 @@ export default function HomePage() {
   const checkIn = useLiveQuery(
     async () => {
       const [preferredTime, record] = await Promise.all([getPreferredTime(profileId), getTodayCheckIn(profileId)]);
-      return { preferredTime, record };
+      const reminders = repo ? await repo.remindersByProfile(profileId) : [];
+      return { preferredTime, record, reminders: reminders.filter((r) => r.status === "pending") };
     },
-    ["checkIns", "settings", "activityLogs"],
-    [profileId, today],
+    ["reminders", "checkIns", "settings", "activityLogs"],
+    [repo, profileId, today],
   );
 
   const chats = useLiveQuery(
@@ -55,12 +56,11 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <CheckInPromptBanner callElsewhere={callElsewhere} />
-
+      {/* The incoming-call banner is rendered by AppShell on every page. */}
       <header className="mb-8">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Home</p>
         <h1 className="mt-2 text-[30px] font-semibold leading-[1.15] tracking-[-0.035em] text-text sm:text-[34px]">
-          Good {nowMs ? dayPart(nowMs) : "day"}, {profile.displayName}
+          Good {nowMs ? dayPart(nowMs) : "day"}, <span className="text-gradient-brand">{profile.displayName}</span>
         </h1>
         <p className="mt-1.5 text-[15px] text-muted">{settings.botName} is here when you are.</p>
       </header>
@@ -75,22 +75,32 @@ export default function HomePage() {
         botName={settings.botName}
         preferredTime={checkIn.data?.preferredTime}
         today={checkIn.error ? null : checkIn.data?.record}
+        reminders={checkIn.data?.reminders ?? []}
         loading={checkIn.loading}
         nowMs={nowMs}
         callElsewhere={callElsewhere}
       />
 
       <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
-        <RecentChatsCard
-          botName={settings.botName}
-          items={chats.data}
-          loading={chats.loading}
-          failed={Boolean(chats.error)}
-          nowMs={nowMs}
-        />
-        <aside aria-label="Backup and shortcuts" className="flex flex-col gap-6">
-          <BackupSummaryCard nowMs={nowMs} />
-          <QuickLinksCard />
+        <Reveal delay={80}>
+          <RecentChatsCard
+            botName={settings.botName}
+            items={chats.data}
+            loading={chats.loading}
+            failed={Boolean(chats.error)}
+            nowMs={nowMs}
+          />
+        </Reveal>
+        <aside aria-label="Reminders, backup and shortcuts" className="flex flex-col gap-6">
+          <Reveal delay={140}>
+            <UpcomingRemindersCard profileId={profileId} nowMs={nowMs} />
+          </Reveal>
+          <Reveal delay={200}>
+            <BackupSummaryCard nowMs={nowMs} />
+          </Reveal>
+          <Reveal delay={260}>
+            <QuickLinksCard />
+          </Reveal>
         </aside>
       </div>
     </AppShell>

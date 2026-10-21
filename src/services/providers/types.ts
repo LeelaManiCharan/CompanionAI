@@ -19,6 +19,8 @@ export type ProviderErrorInfo =
   | { kind: "busy"; provider: "gemini"; code: BusyCode; retryAfterS?: number }
   // 503 / status route says no key / offline
   | { kind: "unavailable"; provider: "gemini"; reason?: "not_configured" | "offline" }
+  // 401 from a protected route: the Supabase session is missing or expired (22.6)
+  | { kind: "unauthorized"; provider: "gemini" }
   | { kind: "notice_declined" } // 6.22
   | { kind: "no_model" } // 6.20
   | { kind: "upstream"; provider: ProviderId; status?: number };

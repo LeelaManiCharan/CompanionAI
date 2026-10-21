@@ -26,8 +26,8 @@ export function SettingsSection({ id, index, title, description, meta, tone = "d
         <div className="min-w-0">
           <p
             className={cn(
-              "font-mono text-[11px] font-medium uppercase tracking-[0.08em]",
-              tone === "danger" ? "text-danger" : "text-primary",
+              "font-mono text-[11px] font-semibold uppercase tracking-[0.08em]",
+              tone === "danger" ? "text-danger" : "text-gradient-brand",
             )}
           >
             {index}
@@ -41,7 +41,7 @@ export function SettingsSection({ id, index, title, description, meta, tone = "d
       </div>
       <div
         className={cn(
-          "rounded-lg border bg-bg shadow-card",
+          "rounded-lg border bg-bg shadow-card transition-shadow duration-300 hover:shadow-elevated",
           tone === "danger" ? "border-danger/30" : "border-border",
         )}
       >
@@ -91,10 +91,10 @@ export function SettingsNav({ items }: { items: SettingsNavItem[] }) {
         aria-current={isActive ? "location" : undefined}
         onClick={() => setActive(item.id)}
         className={cn(
-          "block whitespace-nowrap rounded-md text-sm transition-colors duration-150",
+          "block whitespace-nowrap rounded-md text-sm transition-all duration-200",
           compact ? "px-3 py-1.5" : "px-3 py-2",
           isActive
-            ? "bg-accent font-medium text-primary-deep"
+            ? "bg-gradient-brand font-medium text-white shadow-glow"
             : "text-muted hover:bg-surface hover:text-text",
         )}
       >

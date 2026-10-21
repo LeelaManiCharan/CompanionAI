@@ -109,7 +109,7 @@ describe("GenerateRequestSchema", () => {
 describe("gemini helpers", () => {
   it("geminiModel defaults when unset or blank", () => {
     expect(geminiModel({})).toBe(DEFAULT_GEMINI_MODEL);
-    expect(geminiModel({ GEMINI_MODEL: "  " })).toBe("gemini-2.0-flash");
+    expect(geminiModel({ GEMINI_MODEL: "  " })).toBe("gemini-flash-latest");
     expect(geminiModel({ GEMINI_MODEL: "gemini-x" })).toBe("gemini-x");
   });
 
@@ -152,11 +152,11 @@ describe("gemini helpers", () => {
         { status: 200 },
       ),
     );
-    const r = await callGemini({ apiKey: KEY, model: "gemini-2.0-flash", req: req(), fetch: f as typeof fetch });
+    const r = await callGemini({ apiKey: KEY, model: "gemini-flash-latest", req: req(), fetch: f as typeof fetch });
     expect(r).toEqual({ ok: true, text: "Hi there" });
     const [url, init] = f.mock.calls[0];
     expect(String(url)).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
     );
     expect(String(url)).not.toContain(KEY);
     expect((init?.headers as Record<string, string>)["x-goog-api-key"]).toBe(KEY);

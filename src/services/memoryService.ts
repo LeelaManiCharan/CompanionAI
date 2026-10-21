@@ -258,21 +258,111 @@ export async function drainRetryQueue(): Promise<void> {
  * Hook called by chatService after a reply is stored: drains earlier failed
  * extractions, then extracts for this Message (fire-and-forget).
  */
-export function onReplyStored(op: OperationContext, chatId: string, userMessageId: string): void {
+export function onReplyStored(
+  op: OperationContext,
+  chatId: string,
+  userMessageId: string,
+  userText?: string,
+): void {
   void (async () => {
     await drainRetryQueue();
-    await extractFor(chatId, userMessageId, op);
+    // Trivial messages carry nothing worth remembering; skip the model call.
+    if (userText !== undefined && isTrivialForExtraction(userText)) return;
+    scheduleExtraction({ op, chatId, userMessageId });
   })().catch(() => undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Call budget: skip trivial messages, at most one extraction per chat per 20 s
+// ---------------------------------------------------------------------------
+
+/** Minimum gap between extractions for one Chat. */
+export const EXTRACTION_MIN_INTERVAL_MS = 20_000;
+/** Messages with fewer non-space characters are not extracted. */
+export const EXTRACTION_MIN_CHARS = 12;
+
+const TRIVIAL_MESSAGES = new Set([
+  "hi", "hey", "hello", "hiya", "yo", "sup", "ok", "okay", "k", "kk", "okey", "alright",
+  "thanks", "thank you", "thanks a lot", "thank you so much", "thx", "ty", "cheers",
+  "yes", "yeah", "yep", "yup", "sure", "no", "nope", "nah", "cool", "nice", "great",
+  "good", "fine", "lol", "haha", "hmm", "bye", "good night", "goodnight", "see you",
+  "got it", "sounds good", "good morning", "good evening", "ok thanks", "okay thanks",
+]);
+
+/** True for very short or pure greeting/acknowledgement messages. */
+export function isTrivialForExtraction(text: string): boolean {
+  if (text.replace(/\s/g, "").length < EXTRACTION_MIN_CHARS) return true;
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return TRIVIAL_MESSAGES.has(normalized);
+}
+
+interface PendingExtraction {
+  op: OperationContext;
+  chatId: string;
+  userMessageId: string;
+}
+
+interface ChatThrottle {
+  lastRunAt: number;
+  pending: PendingExtraction | null;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+const chatThrottles = new Map<string, ChatThrottle>();
+
+function runPending(job: PendingExtraction, throttle: ChatThrottle): void {
+  throttle.lastRunAt = Date.now();
+  void extractFor(job.chatId, job.userMessageId, job.op).catch(() => undefined);
+}
+
+/**
+ * Runs extraction now if the Chat had none in the last 20 s; otherwise keeps
+ * only the latest Message and runs it when the window opens.
+ */
+function scheduleExtraction(job: PendingExtraction): void {
+  let throttle = chatThrottles.get(job.chatId);
+  if (!throttle) {
+    throttle = { lastRunAt: 0, pending: null, timer: null };
+    chatThrottles.set(job.chatId, throttle);
+  }
+  const t = throttle;
+  const waitMs = t.lastRunAt + EXTRACTION_MIN_INTERVAL_MS - Date.now();
+  if (waitMs <= 0 && t.timer === null) {
+    runPending(job, t);
+    return;
+  }
+  t.pending = job; // coalesce: the latest Message wins
+  if (t.timer !== null) return;
+  t.timer = setTimeout(() => {
+    t.timer = null;
+    const next = t.pending;
+    t.pending = null;
+    if (next) runPending(next, t);
+  }, Math.max(0, waitMs));
+}
+
+function dropThrottle(chatId: string): void {
+  const t = chatThrottles.get(chatId);
+  if (t?.timer) clearTimeout(t.timer);
+  chatThrottles.delete(chatId);
 }
 
 /** Drops queued retries for a deleted Chat (10.10). */
 export function forgetQueuedForChat(chatId: string): void {
   for (const [id, e] of retryQueue) if (e.chatId === chatId) retryQueue.delete(id);
+  dropThrottle(chatId);
 }
 
 /** Drops queued retries for a Profile (reset or deletion). */
 export function forgetQueuedForProfile(profileId: string): void {
   for (const [id, e] of retryQueue) if (e.op.profileId === profileId) retryQueue.delete(id);
+  for (const [chatId, t] of chatThrottles) {
+    if (t.pending?.op.profileId === profileId) dropThrottle(chatId);
+  }
 }
 
 /** Number of queued extraction retries (for diagnostics). */

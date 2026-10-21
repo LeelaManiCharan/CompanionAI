@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const GenerateRequestSchema = z
   .object({
-    task: z.enum(["reply", "extract_memories", "summarize", "test"]),
+    task: z.enum(["reply", "extract_memories", "extract_reminder", "summarize", "test"]),
     system: z.string().min(1).max(20_000),
     messages: z
       .array(

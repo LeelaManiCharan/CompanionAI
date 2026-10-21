@@ -1,4 +1,5 @@
 import type { Message } from "@/core/models";
+import { IconMic } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { clockTime, fullDateTime } from "./format";
 
@@ -17,8 +18,8 @@ export function BotAvatar({
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 select-none items-center justify-center rounded-full border border-primary/15 bg-accent",
-        "font-semibold text-primary-deep",
+        "inline-flex shrink-0 select-none items-center justify-center rounded-full bg-gradient-brand shadow-glow",
+        "font-semibold text-white",
         size === "lg" ? "size-14 text-[20px]" : "size-7 text-[12px]",
         className,
       )}
@@ -46,7 +47,7 @@ export function MessageBubble({ message, botName, groupStart, groupEnd }: Messag
   return (
     <li
       className={cn(
-        "flex items-end gap-2.5",
+        "flex animate-fade-up items-end gap-2.5",
         isUser ? "justify-end" : "justify-start",
         groupStart && "pt-1",
         groupEnd ? "mb-4" : "mb-1",
@@ -66,7 +67,7 @@ export function MessageBubble({ message, botName, groupStart, groupEnd }: Messag
             "rounded-[14px] px-3.5 py-2.5 text-[15px] leading-[1.55]",
             "whitespace-pre-wrap [overflow-wrap:anywhere]",
             isUser
-              ? "bg-primary text-white shadow-[0_1px_1px_rgb(15_61_34/0.25)]"
+              ? "bg-gradient-brand text-white shadow-glow"
               : "border border-border bg-bg text-text shadow-card",
             isUser
               ? groupEnd
@@ -87,6 +88,12 @@ export function MessageBubble({ message, botName, groupStart, groupEnd }: Messag
             className={cn("mt-1 px-1 font-mono text-[11px] tabular-nums text-muted", isUser ? "text-right" : "text-left")}
           >
             {isUser ? "You" : botName} · {clockTime(message.createdAt)}
+            {message.channel === "voice" ? (
+              <>
+                <IconMic size={10} aria-hidden="true" className="ml-1 inline-block align-[-1px]" />
+                <span className="sr-only"> (said in a voice call)</span>
+              </>
+            ) : null}
           </time>
         ) : null}
       </div>

@@ -72,11 +72,12 @@ export const NewConversation = forwardRef<ComposerHandle, NewConversationProps>(
       ) : null}
 
       <div className="flex flex-1 flex-col items-center justify-center px-2 py-10 text-center sm:py-16">
-        <div className="relative">
+        <div className="relative animate-fade-up">
+          <span aria-hidden="true" className="absolute -inset-3 rounded-full bg-gradient-brand opacity-[0.12] blur-xl animate-float-soft" />
           <span aria-hidden="true" className="absolute -inset-2 rounded-full border border-primary/10" />
           <BotAvatar botName={botName} size="lg" />
         </div>
-        <p className="mt-6 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">New conversation</p>
+        <p className="mt-6 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">New conversation</p>
         <h1 className="mt-2 text-[26px] leading-tight tracking-[-0.03em] text-text">
           Start a conversation with {botName}
         </h1>
@@ -95,7 +96,7 @@ export const NewConversation = forwardRef<ComposerHandle, NewConversationProps>(
                   setText(s);
                   composerRef.current?.focus();
                 }}
-                className="rounded-full border border-border bg-bg px-3.5 py-1.5 text-[13px] text-text shadow-card transition-colors duration-150 hover:border-primary/30 hover:bg-accent/60 disabled:pointer-events-none disabled:opacity-50"
+                className="rounded-full border border-border bg-bg px-3.5 py-1.5 text-[13px] text-text shadow-card transition-all duration-200 hover:border-transparent hover:bg-gradient-brand hover:text-white hover:shadow-glow disabled:pointer-events-none disabled:opacity-50"
               >
                 {s}
               </button>

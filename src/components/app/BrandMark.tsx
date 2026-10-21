@@ -11,7 +11,13 @@ export function BrandMark({ size = 24, className }: { size?: number; className?:
       focusable="false"
       className={cn("shrink-0", className)}
     >
-      <rect width="24" height="24" rx="7" className="fill-primary" />
+      <defs>
+        <linearGradient id="brand-mark-grad" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stopColor="var(--color-grad-1)" />
+          <stop offset="100%" stopColor="var(--color-grad-3)" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="7" fill="url(#brand-mark-grad)" />
       <path d="M7.25 15a4.75 4.75 0 0 1 9.5 0" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
       <path d="M5.75 17.75h12.5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
       <path d="M12 6.25v1.5" fill="none" stroke="#fff" strokeOpacity="0.7" strokeWidth="1.75" strokeLinecap="round" />

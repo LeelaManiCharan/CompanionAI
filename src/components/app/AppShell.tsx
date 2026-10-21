@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
+import { CheckInPromptBanner } from "@/components/home/CheckInPromptBanner";
+import { useCallElsewhere } from "@/services/useTabState";
 import { cn } from "@/lib/cn";
 import { AiDisclaimer } from "./AiDisclaimer";
 import { AppNotices } from "./AppNotices";
@@ -46,6 +49,7 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
   const pathname = usePathname() ?? "/";
   const profile = useOptionalApp()?.activeProfile ?? null;
   const initial = profile?.displayName.trim().charAt(0).toUpperCase() || "?";
+  const callElsewhere = useCallElsewhere();
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
@@ -56,7 +60,7 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/80">
+      <header className="sticky top-0 z-30 border-b border-border/80 glass-panel supports-[backdrop-filter]:bg-bg/70">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
           <Link href="/" aria-label="Companion home" className="-ml-1 rounded-md px-1 py-1">
             <Wordmark />
@@ -74,7 +78,7 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
                       className={cn(
                         "relative inline-flex h-9 items-center rounded-md px-3 text-sm tracking-[-0.01em] transition-colors duration-150",
                         active
-                          ? "font-medium text-text after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-primary"
+                          ? "font-medium text-text after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-gradient-brand"
                           : "text-muted hover:bg-surface hover:text-text",
                       )}
                     >
@@ -92,11 +96,11 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
               <Link
                 href="/profiles"
                 title="Switch profile"
-                className="inline-flex h-9 items-center gap-2 rounded-md px-1.5 text-sm text-text transition-colors hover:bg-surface sm:pr-2.5"
+                className="group inline-flex h-9 items-center gap-2 rounded-md px-1.5 text-sm text-text transition-colors hover:bg-surface sm:pr-2.5"
               >
                 <span
                   aria-hidden="true"
-                  className="inline-flex size-7 items-center justify-center rounded-full border border-primary/15 bg-accent text-[13px] font-semibold text-primary-deep"
+                  className="inline-flex size-7 items-center justify-center rounded-full bg-gradient-brand text-[13px] font-semibold text-white shadow-glow transition-transform duration-200 group-hover:scale-105"
                 >
                   {initial}
                 </span>
@@ -107,6 +111,7 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
               </Link>
             ) : null}
             <HelpButton />
+            <SignOutButton className="-mr-1" />
           </div>
         </div>
 
@@ -120,8 +125,10 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-8 items-center justify-center rounded-md px-3 text-[13px] transition-colors",
-                      active ? "bg-accent font-medium text-primary-deep" : "text-muted hover:bg-surface hover:text-text",
+                      "flex h-8 items-center justify-center rounded-md px-3 text-[13px] transition-all duration-200",
+                      active
+                        ? "bg-gradient-brand font-medium text-white shadow-glow"
+                        : "text-muted hover:bg-surface hover:text-text",
                     )}
                   >
                     {item.label}
@@ -138,6 +145,8 @@ export function AppShell({ children, width = "default", mainClassName, hideFoote
         tabIndex={-1}
         className={cn("mx-auto w-full flex-1 px-4 py-8 outline-none sm:px-6 sm:py-10", WIDTHS[width], mainClassName)}
       >
+        {/* Incoming calls (reminders 24.6, Daily_Check_Ins 12.6) ring at the top of every page. */}
+        <CheckInPromptBanner callElsewhere={callElsewhere} />
         <AppNotices className="mb-6" />
         {children}
       </main>

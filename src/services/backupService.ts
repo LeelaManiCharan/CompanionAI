@@ -3,9 +3,11 @@
  * 20.16, 20.27, 20.29).
  *
  * - Cloud backups are encrypted (`encryptBackup`) and uploaded to Supabase
- *   Storage under `{backupNamespaceId}/backup-{yyyyMMddTHHmmssSSSZ}-{rand6}.acb`.
- * - Every Cloud_Store call goes through one Supabase client whose custom fetch
- *   only reaches the configured project origin and aborts after 30 s.
+ *   Storage under `{userId}/{backupNamespaceId}/backup-{yyyyMMddTHHmmssSSSZ}-{rand6}.acb`
+ *   in the app's own project (session-authenticated, 22.16), or under
+ *   `{backupNamespaceId}/…` for a manual override project (see `cloudConfig`).
+ * - Override calls go through one Supabase client whose custom fetch only
+ *   reaches the configured project origin; every call is capped at 30 s.
  * - Guards (no Local_Store, offline, unconfigured, no key, passphrase length)
  *   return before any client is created, so they send zero requests.
  * - Restore and import replace all profile-data stores in one transaction,
@@ -38,6 +40,8 @@ import {
 import { redactSecrets } from "@/core/secrets";
 import { validatePassphrase } from "@/core/validators";
 import { getRepo, type OperationContext, type Repo, type RepoError } from "@/data/repository";
+import { getBrowserSupabase } from "@/lib/supabase/client";
+import { getSupabaseEnv, isSupabaseEnvMissing } from "@/lib/supabase/env";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +52,7 @@ export type BackupServiceErrorKind =
   | "offline"
   | "not_configured"
   | "no_key"
+  | "not_signed_in"
   | "passphrase_length"
   | "key_rejected"
   | "bucket_not_found"
@@ -122,6 +127,8 @@ const RESTORE_STORES: StoreName[] = [
   "summaries",
   "profileMeta",
   "checkIns",
+  // Not in backups (24.9): cleared so no reminder outlives its restored-away Profile.
+  "reminders",
 ];
 
 /** `backupMeta` and `browser` are unscoped, so any profileId works for the op (20.8). */
@@ -132,12 +139,13 @@ const MESSAGES = {
   offline: "You're offline. Backup and restore will be available again when you reconnect.",
   not_configured: "Cloud storage is not configured. Open Cloud backup settings to add your Supabase details.",
   no_key: "No Supabase anon key is saved. Enter your anon key in Cloud backup settings first.",
+  not_signed_in: "Session expired, sign in again to back up or restore.",
   key_rejected: "Supabase rejected the API key. Check the anon key in Settings.",
   timeout: "The request to Supabase timed out after 30 seconds. Please try again.",
   decrypt_failed: "Passphrase is incorrect or the backup is corrupted.",
   not_found: "That backup could not be found in cloud storage.",
   network: "Couldn't reach Supabase. Check your connection and the project URL in Settings.",
-  rls: "Supabase blocked the request with a Row Level Security policy. Make sure the bucket's storage policies allow access to objects under your backup namespace.",
+  rls: "Supabase blocked the request with a Row Level Security policy. Make sure the bucket's storage policies allow access to objects under your backup folder (see supabase/schema.sql).",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -336,6 +344,29 @@ async function getClient(config: CloudStoreConfig): Promise<CachedClient> {
   return cached;
 }
 
+/**
+ * Which Cloud_Store a backup uses (18.1, 22.16):
+ * - `override`: a manual project saved in Settings (anon key only, paths
+ *   `${backupNamespaceId}/…`), unchanged from before accounts existed.
+ * - `env`: the app's own Supabase project from NEXT_PUBLIC_SUPABASE_* with the
+ *   `companion-backups` bucket, using the signed-in session; paths are
+ *   `${userId}/${backupNamespaceId}/…`.
+ */
+export type CloudTarget =
+  | { source: "override"; config: CloudStoreConfig }
+  | { source: "env"; config: CloudStoreConfig };
+
+export function cloudConfig(browser: BrowserRecord | null | undefined): CloudTarget | null {
+  const override = browser?.cloudStoreConfig ?? null;
+  if (override) return { source: "override", config: override };
+  const env = getSupabaseEnv();
+  if (isSupabaseEnvMissing(env)) return null;
+  return {
+    source: "env",
+    config: { supabaseUrl: env.url, supabaseAnonKey: env.anonKey, bucketName: DEFAULT_BUCKET_NAME },
+  };
+}
+
 interface CloudContext {
   repo: Repo;
   browser: BrowserRecord;
@@ -343,6 +374,32 @@ interface CloudContext {
   client: SupabaseClient;
   timeout: TimeoutState;
   secrets: string[];
+  /** Object prefix: `${userId}/${namespaceId}` (env) or `${namespaceId}` (override). */
+  prefix: string;
+  source: CloudTarget["source"];
+}
+
+/**
+ * Caps a Cloud_Store call at 30 s. The override client also has this cap in
+ * its fetch; the session client (env project) relies on this wrapper.
+ */
+function withCloudTimeout<T>(p: PromiseLike<T>, t: TimeoutState): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => {
+      t.hit = true;
+      reject(new DOMException("The Cloud_Store request timed out.", "TimeoutError"));
+    }, CLOUD_TIMEOUT_MS);
+    p.then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
 }
 
 /** Every guard runs before a client exists, so a failed guard sends zero requests. */
@@ -351,8 +408,9 @@ async function prepareCloud(repo: Repo | null, passphrase?: string): Promise<Ser
   if (isOffline()) return fail("offline", MESSAGES.offline);
 
   const browser = await repo.getBrowserRecord();
-  const config = browser?.cloudStoreConfig ?? null;
-  if (!browser || !config || !config.supabaseUrl || !config.bucketName) {
+  const target = cloudConfig(browser);
+  const config = target?.config ?? null;
+  if (!browser || !target || !config || !config.supabaseUrl || !config.bucketName) {
     return fail("not_configured", MESSAGES.not_configured);
   }
   if (!config.supabaseAnonKey) return fail("no_key", MESSAGES.no_key);
@@ -364,9 +422,44 @@ async function prepareCloud(repo: Repo | null, passphrase?: string): Promise<Ser
     secrets.push(passphrase);
   }
 
+  if (target.source === "env") {
+    // Session-authenticated client: Storage requests carry the user's JWT and
+    // the bucket policies only allow `${auth.uid()}/…` (22.16).
+    const client = getBrowserSupabase();
+    if (!client) return fail("not_configured", MESSAGES.not_configured, secrets);
+    let userId: string | null = null;
+    try {
+      const { data } = await client.auth.getSession();
+      userId = data.session?.user.id ?? null;
+    } catch {
+      userId = null;
+    }
+    if (!userId) return fail("not_signed_in", MESSAGES.not_signed_in, secrets);
+    const timeout: TimeoutState = { hit: false };
+    return ok({
+      repo,
+      browser,
+      config,
+      client,
+      timeout,
+      secrets,
+      prefix: `${userId}/${browser.backupNamespaceId}`,
+      source: "env",
+    });
+  }
+
   const { client, timeout } = await getClient(config);
   timeout.hit = false;
-  return ok({ repo, browser, config, client, timeout, secrets });
+  return ok({
+    repo,
+    browser,
+    config,
+    client,
+    timeout,
+    secrets,
+    prefix: browser.backupNamespaceId,
+    source: "override",
+  });
 }
 
 interface ErrorFacts {
@@ -461,14 +554,15 @@ export async function backupToCloud(
 
   const encrypted = await encryptBackup(plain, passphrase);
   const name = `backup-${compactTimestamp(createdAt)}-${rand6()}.acb`;
-  const path = `${browser.backupNamespaceId}/${name}`;
+  const path = `${ctx.prefix}/${name}`;
   // encryptBackup returns an ArrayBuffer-backed array.
   const body = new Blob([encrypted as Uint8Array<ArrayBuffer>], { type: OCTET_STREAM });
 
   try {
-    const { error } = await client.storage
-      .from(config.bucketName)
-      .upload(path, body, { contentType: OCTET_STREAM, upsert: false });
+    const { error } = await withCloudTimeout(
+      client.storage.from(config.bucketName).upload(path, body, { contentType: OCTET_STREAM, upsert: false }),
+      ctx.timeout,
+    );
     if (error) return cloudError(error, ctx);
   } catch (err) {
     return cloudError(err, ctx);
@@ -502,9 +596,12 @@ export async function listCloudBackups(repo: Repo | null = getRepo()): Promise<S
   const ctx = prep.value;
 
   try {
-    const { data, error } = await ctx.client.storage
-      .from(ctx.config.bucketName)
-      .list(ctx.browser.backupNamespaceId, { limit: LIST_LIMIT, sortBy: { column: "name", order: "desc" } });
+    const { data, error } = await withCloudTimeout(
+      ctx.client.storage
+        .from(ctx.config.bucketName)
+        .list(ctx.prefix, { limit: LIST_LIMIT, sortBy: { column: "name", order: "desc" } }),
+      ctx.timeout,
+    );
     if (error) return cloudError(error, ctx);
     const entries: CloudBackupEntry[] = [];
     for (const f of data ?? []) {
@@ -539,9 +636,10 @@ export async function restoreFromCloud(
 
   let blob: Blob;
   try {
-    const { data, error } = await ctx.client.storage
-      .from(ctx.config.bucketName)
-      .download(`${ctx.browser.backupNamespaceId}/${name}`);
+    const { data, error } = await withCloudTimeout(
+      ctx.client.storage.from(ctx.config.bucketName).download(`${ctx.prefix}/${name}`),
+      ctx.timeout,
+    );
     if (error) return cloudError(error, ctx);
     if (!data) return fail("not_found", MESSAGES.not_found, ctx.secrets);
     blob = data;

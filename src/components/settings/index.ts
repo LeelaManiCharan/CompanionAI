@@ -1,3 +1,4 @@
+export { AccountSection } from "./AccountSection";
 export { ActivitySection } from "./ActivitySection";
 export { CheckInsSection } from "./CheckInsSection";
 export { CloudBackupSection } from "./CloudBackupSection";

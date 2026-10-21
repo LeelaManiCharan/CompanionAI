@@ -6,7 +6,10 @@
  */
 import type { Role } from "./models";
 
-export type Task = "reply" | "extract_memories" | "summarize" | "test";
+export type Task = "reply" | "extract_memories" | "extract_reminder" | "summarize" | "test";
+
+/** Tasks whose output must be a JSON object (JSON mime for Gemini, `format: "json"` for Ollama). */
+export const JSON_TASKS: ReadonlySet<Task> = new Set<Task>(["extract_memories", "extract_reminder"]);
 export type ProviderId = "ollama" | "gemini";
 
 export interface GenerationMessage {

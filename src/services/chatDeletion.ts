@@ -38,6 +38,9 @@ async function repo(): Promise<Repo> {
   return getRepo() ?? (await initRepo());
 }
 
+/** Key range over the `byProfileDue` index for one Profile. */
+const profileRange = (profileId: string) => IDBKeyRange.bound([profileId, ""], [profileId, "\uffff"]);
+
 /** Deletes a Chat of the Active_Profile and forgets everything derived from it. */
 export async function deleteChat(chatId: string): Promise<ServiceResult> {
   if (isCallActive(chatId)) return fail(DELETION_ERRORS.callActive); // 20.9
@@ -49,7 +52,7 @@ export async function deleteChat(chatId: string): Promise<ServiceResult> {
   const op = opFor(profileId, chatId);
   let missing = false;
   let wrongProfile = false;
-  const res = await r.tx(op, ["chats", "messages", "memories", "summaries", "profileMeta"], async (t) => {
+  const res = await r.tx(op, ["chats", "messages", "memories", "summaries", "profileMeta", "reminders"], async (t) => {
     assertOpCurrent(op);
     const chat = await t.get("chats", chatId);
     if (!chat) {
@@ -70,6 +73,9 @@ export async function deleteChat(chatId: string): Promise<ServiceResult> {
     for (const id of deleteIds) await t.delete("memories", id);
     for (const m of updates) await t.put("memories", m);
     for (const m of messages) await t.delete("messages", m.id);
+    // Reminders outlive their Chat but must not reference it (24.9).
+    const reminders = await t.getAllByIndex("reminders", "byProfileDue", profileRange(profileId));
+    for (const rem of reminders) if (rem.chatId === chatId) await t.put("reminders", { ...rem, chatId: null });
     await t.delete("chats", chatId);
 
     const now = new Date().toISOString();
@@ -103,8 +109,10 @@ export async function resetProfile(profileId: string): Promise<ServiceResult> {
   }
 
   const op = opFor(profileId);
-  const res = await r.tx(op, ["chats", "messages", "memories", "summaries", "profileMeta"], async (t) => {
+  const res = await r.tx(op, ["chats", "messages", "memories", "summaries", "profileMeta", "reminders"], async (t) => {
     assertOpCurrent(op);
+    const reminders = await t.getAllByIndex("reminders", "byProfileDue", profileRange(profileId));
+    for (const rem of reminders) await t.delete("reminders", rem.id);
     const memories = await t.getAllByIndex("memories", "byProfile", profileId);
     const messages = await t.getAllByIndex("messages", "byProfile", profileId);
     const chats = await t.getAllByIndex("chats", "byProfile", profileId);

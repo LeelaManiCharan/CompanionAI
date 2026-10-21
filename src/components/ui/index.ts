@@ -15,3 +15,4 @@ export * from "./InlineAlert";
 export * from "./Toast";
 export * from "./EmptyState";
 export * from "./Skeleton";
+export * from "./Reveal";

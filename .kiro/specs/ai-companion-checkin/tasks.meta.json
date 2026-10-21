@@ -236,6 +236,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232112434
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239705410
       }
     ],
     "9.1 Implement DB schema, open, and migrations in `src/data/db.ts`": [
@@ -311,6 +316,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232113742
+      },
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805508
       }
     ],
     "11.1 Implement `src/services/profileService.ts` and `src/services/settingsService.ts`": [
@@ -420,6 +430,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232114817
+      },
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806028
       }
     ],
     "13.5 Write property test for no cross-profile writes": [
@@ -427,6 +442,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232114962
+      },
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806103
       }
     ],
     "14.1 Implement `src/services/activityTracker.ts`": [
@@ -468,6 +488,16 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232115413
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239706353
+      },
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806366
       }
     ],
     "16.1 Implement UI primitives in `src/components/ui/`": [
@@ -747,6 +777,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232117796
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239702918
       }
     ],
     "26.1 Write `README.md`": [
@@ -793,6 +828,11 @@
         "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792239301796
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239702619
       }
     ],
     "27. Final checkpoint": [
@@ -800,6 +840,11 @@
         "executionId": "b586bda2-199c-49bd-9f4b-44361d1d8890",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792232118249
+      },
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239703903
       }
     ],
     "1. Scaffold the Next.js project at the workspace root": [
@@ -870,6 +915,279 @@
         "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
         "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
         "timestamp": 1792236171079
+      }
+    ],
+    "26. Deployment readiness": [
+      {
+        "executionId": "e0618369-cea1-4096-91f7-1bf9804c8c7b",
+        "chatSessionId": "sess_65a3eef2-7f2c-4674-af01-cce8a7d229da",
+        "timestamp": 1792239702754
+      }
+    ],
+    "1.2 Write config smoke tests": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239803718
+      }
+    ],
+    "2.3 Write property test for schema validation": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239803801
+      }
+    ],
+    "2.4 Write property test for key masking and redaction": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239803881
+      }
+    ],
+    "3.3 Write property test for safety normalization": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804017
+      }
+    ],
+    "3.4 Write property test for context builder": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804086
+      }
+    ],
+    "3.5 Write property test for byte-budget trimming": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804155
+      }
+    ],
+    "4.2 Write property test for source cap": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804220
+      }
+    ],
+    "4.3 Write property test for de-duplication": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804326
+      }
+    ],
+    "4.4 Write property test for extraction parsing": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804402
+      }
+    ],
+    "5.2 Write property test for preferred time": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804468
+      }
+    ],
+    "5.3 Write property test for DST-safe resolution": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804537
+      }
+    ],
+    "5.4 Write property test for one check-in / one snooze per date": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804633
+      }
+    ],
+    "5.5 Write property test for midnight clipping": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804713
+      }
+    ],
+    "6.3 Write property test for provider selection": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804794
+      }
+    ],
+    "6.4 Write property test for profile selection and list ordering": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804868
+      }
+    ],
+    "6.5 Write unit tests for call machine transitions": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239804945
+      }
+    ],
+    "7.4 Write property test for backup error classification": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805022
+      }
+    ],
+    "7.6 Write property test for wrong passphrase / tampering": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805158
+      }
+    ],
+    "9.3 Write property test for write/read round-trip": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805254
+      }
+    ],
+    "9.4 Write property test for repository rejection of invalid records": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805354
+      }
+    ],
+    "9.5 Write unit tests for migration failure and newer-version handling": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805435
+      }
+    ],
+    "10.4 Write property test for rate limiter": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805582
+      }
+    ],
+    "10.5 Write property test for server key hygiene": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805692
+      }
+    ],
+    "10.6 Write unit tests for route methods and upstream mapping": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805803
+      }
+    ],
+    "11.2 Write unit tests for profile and settings services": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805878
+      }
+    ],
+    "12.3 Write unit tests for router with mocked fetch": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239805954
+      }
+    ],
+    "13.6 Write unit tests for chat flow, delete rollback, and summary triggers": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806176
+      }
+    ],
+    "14.3 Write unit tests for activity sessions and scheduler wiring": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806291
+      }
+    ],
+    "16.3 Write component tests for shell pieces": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806439
+      }
+    ],
+    "17.2 Write component tests for Home page": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806517
+      }
+    ],
+    "18.2 Write component tests for Chat page": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806589
+      }
+    ],
+    "19.3 Write tests for the voice controller with fake speech APIs": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806657
+      }
+    ],
+    "20.2 Write component tests for Settings validation and masking": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806773
+      }
+    ],
+    "21.4 Write component tests for Memories, Activity, and Profiles pages": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806857
+      }
+    ],
+    "22.3 Write unit tests for notification permission branches": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239806932
+      }
+    ],
+    "23.3 Write unit tests with BroadcastChannel polyfill and Web Locks stub": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239807006
+      }
+    ],
+    "24.3 Write property test for secret exclusion from backups": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239807080
+      }
+    ],
+    "24.4 Write unit tests for backup service with mocked Supabase client": [
+      {
+        "executionId": "ec1dac9c-cc9f-4794-99a2-d6e67017154b",
+        "chatSessionId": "sess_ff934239-f511-4b3f-82fb-e60e7d21cd1b",
+        "timestamp": 1792239807155
       }
     ]
   }

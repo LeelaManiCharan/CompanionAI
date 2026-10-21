@@ -1,7 +1,7 @@
 /**
  * POST pipeline for the Generate_Route (Req 6A.1–6A.12, 21.3).
  *
- * Order: 415 → 503 → 429 (local) → 413 → 400 → upstream (504 / 429 / 502 / 200).
+ * Order: 401/503 (session) → 415 → 503 → 429 (local, per user) → 413 → 400 → upstream (504 / 429 / 502 / 200).
  * Unexpected exceptions are caught at the top level and return 500.
  *
  * Key hygiene: the key is read from the injected env inside the handler and is
@@ -10,8 +10,16 @@
  * error bodies. `safeLog` is the only logger.
  */
 import type { Task } from "@/core/generation";
-import { callGemini, geminiModel } from "./gemini";
-import { clientIp, type RateLimiter } from "./rateLimiter";
+import {
+  callGemini,
+  createModelCooldowns,
+  DEFAULT_QUOTA_COOLDOWN_S,
+  geminiModelChain,
+  type GeminiResult,
+  type ModelCooldowns,
+} from "./gemini";
+import { userLimiterKey, type RequireUser } from "./auth";
+import type { RateLimiter } from "./rateLimiter";
 import { safeLog } from "./safeLog";
 import { GenerateRequestSchema, issueFields } from "./schema";
 
@@ -20,6 +28,8 @@ export const MAX_BODY_BYTES = 65_536;
 export const UPSTREAM_TIMEOUT_MS = 50_000;
 
 export type GenerateErrorCode =
+  | "unauthorized"
+  | "supabase_not_configured"
   | "unsupported_media_type"
   | "gemini_not_configured"
   | "rate_limited_local"
@@ -32,6 +42,8 @@ export type GenerateErrorCode =
   | "internal_error";
 
 const MESSAGES: Record<GenerateErrorCode, string> = {
+  unauthorized: "Sign in to continue.",
+  supabase_not_configured: "Sign-in is not configured on this deployment.",
   unsupported_media_type: "Content-Type must be application/json.",
   gemini_not_configured: "The hosted model is not configured on this deployment.",
   rate_limited_local: "Too many requests. Please try again later.",
@@ -49,8 +61,30 @@ export interface GenerateDeps {
   fetch: typeof fetch;
   now: () => number;
   limiter: RateLimiter;
+  /** Session check (22.6); runs before any body handling. */
+  requireUser: RequireUser;
   /** Upstream abort timeout; defaults to 50 s (6A.9). Overridable for tests. */
   timeoutMs?: number;
+  /** Per-model quota cooldowns; defaults to a module-wide in-memory store. */
+  cooldowns?: ModelCooldowns;
+}
+
+/** Survives across requests within one server instance. */
+const sharedCooldowns = createModelCooldowns();
+
+/**
+ * Models not in cooldown, in chain order. When every model is cooling down,
+ * the one that frees up first is still tried so a request is never refused
+ * without at least one upstream attempt.
+ */
+function orderByCooldown(chain: string[], cooldowns: ModelCooldowns, now: number): string[] {
+  const ready = chain.filter((m) => cooldowns.remainingMs(m, now) === 0);
+  if (ready.length > 0) return ready;
+  let best = chain[0];
+  for (const m of chain) {
+    if (cooldowns.remainingMs(m, now) < cooldowns.remainingMs(best, now)) best = m;
+  }
+  return best === undefined ? [] : [best];
 }
 
 const BASE_HEADERS: Record<string, string> = {
@@ -135,6 +169,14 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
   ) => respond(status, errorBody(code, fields), code, extra);
 
   try {
+    // 0. Session (22.6): after the method check (route exports), before the body.
+    const auth = await deps.requireUser();
+    if (!auth.ok) {
+      return auth.reason === "not_configured"
+        ? fail(503, "supabase_not_configured")
+        : fail(401, "unauthorized");
+    }
+
     // 1. Content-Type (6A.1)
     if (!isJsonContentType(req.headers.get("content-type"))) {
       return fail(415, "unsupported_media_type");
@@ -144,8 +186,8 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
     const apiKey = deps.env.GEMINI_API_KEY?.trim() ?? "";
     if (apiKey === "") return fail(503, "gemini_not_configured");
 
-    // 3. Local rate limit (6A.5, 6A.6)
-    const rl = deps.limiter.check(clientIp(req.headers));
+    // 3. Local rate limit (6A.5, 6A.6), keyed by verified user id (22.7)
+    const rl = deps.limiter.check(userLimiterKey(auth.user.id));
     if (!rl.allowed) {
       return fail(429, "rate_limited_local", undefined, {
         "retry-after": String(rl.retryAfterS),
@@ -177,17 +219,32 @@ export async function handleGenerate(req: Request, deps: GenerateDeps): Promise<
     if (!result.success) return fail(400, "invalid_request", issueFields(result.error));
     task = result.data.task;
 
-    // 6. Upstream (6A.7, 6A.9, 6A.10, 21.3)
-    const out = await callGemini({
-      apiKey,
-      model: geminiModel(deps.env),
-      req: result.data,
-      fetch: deps.fetch,
-      signal: upstreamSignal(req, deps.timeoutMs ?? UPSTREAM_TIMEOUT_MS),
-    });
-    if (out.ok) return respond(200, { text: out.text });
-    if (out.kind === "timeout") return fail(504, "upstream_timeout");
-    if (out.kind === "quota") return fail(429, "gemini_quota");
+    // 6. Upstream (6A.7, 6A.9, 6A.10, 21.3) with model fallback on quota / 404.
+    //    One shared 50 s signal covers every attempt in the chain.
+    const cooldowns = deps.cooldowns ?? sharedCooldowns;
+    const signal = upstreamSignal(req, deps.timeoutMs ?? UPSTREAM_TIMEOUT_MS);
+    const chain = orderByCooldown(geminiModelChain(deps.env, result.data.task), cooldowns, deps.now());
+    let out: GeminiResult = { ok: false, kind: "upstream" };
+    let sawQuota = false;
+    for (const model of chain) {
+      out = await callGemini({ apiKey, model, req: result.data, fetch: deps.fetch, signal });
+      if (out.ok) return respond(200, { text: out.text });
+      if (out.kind === "timeout") return fail(504, "upstream_timeout");
+      if (out.kind === "quota") {
+        sawQuota = true;
+        cooldowns.mark(model, deps.now(), out.retryAfterS ?? DEFAULT_QUOTA_COOLDOWN_S);
+        continue;
+      }
+      if (out.status === 404) continue;
+      return fail(502, "upstream_error");
+    }
+    if (sawQuota) {
+      const now = deps.now();
+      const waitMs = Math.min(...chain.map((m) => cooldowns.remainingMs(m, now)));
+      const extra: Record<string, string> =
+        Number.isFinite(waitMs) && waitMs > 0 ? { "retry-after": String(Math.ceil(waitMs / 1000)) } : {};
+      return fail(429, "gemini_quota", undefined, extra);
+    }
     return fail(502, "upstream_error");
   } catch {
     return fail(500, "internal_error");

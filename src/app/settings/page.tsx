@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AppShell, useActiveProfile } from "@/components/app";
 import {
+  AccountSection,
   ActivitySection,
   CheckInsSection,
   CloudBackupSection,
@@ -12,6 +13,7 @@ import {
   SettingsNav,
   type SettingsNavItem,
 } from "@/components/settings";
+import { Reveal } from "@/components/ui";
 
 const SECTIONS: SettingsNavItem[] = [
   { id: "companion", label: "Companion" },
@@ -19,6 +21,7 @@ const SECTIONS: SettingsNavItem[] = [
   { id: "check-ins", label: "Check-ins" },
   { id: "activity", label: "Activity" },
   { id: "cloud-backup", label: "Cloud backup" },
+  { id: "account", label: "Account" },
   { id: "danger-zone", label: "Danger zone" },
 ];
 
@@ -46,7 +49,7 @@ function SettingsContent() {
   return (
     <>
       <header className="mb-8 flex flex-col gap-1 border-b border-border pb-6 sm:mb-10">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary">Settings</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">Settings</p>
         <h1 className="text-[28px] leading-[1.2] tracking-[-0.03em] text-text">Make it yours</h1>
         <p className="text-sm text-muted">
           Settings for <span className="font-medium text-text">{profile.displayName}</span>, saved on this device.
@@ -58,12 +61,27 @@ function SettingsContent() {
         <SettingsNav items={SECTIONS} />
         {/* Remount per profile so drafts never carry over between profiles. */}
         <div key={profile.id} className="flex min-w-0 flex-col gap-12">
-          <CompanionSection index={pad(0)} />
-          <ModelSection index={pad(1)} />
-          <CheckInsSection index={pad(2)} />
-          <ActivitySection index={pad(3)} />
-          <CloudBackupSection index={pad(4)} />
-          <DangerZoneSection index={pad(5)} />
+          <Reveal>
+            <CompanionSection index={pad(0)} />
+          </Reveal>
+          <Reveal>
+            <ModelSection index={pad(1)} />
+          </Reveal>
+          <Reveal>
+            <CheckInsSection index={pad(2)} />
+          </Reveal>
+          <Reveal>
+            <ActivitySection index={pad(3)} />
+          </Reveal>
+          <Reveal>
+            <CloudBackupSection index={pad(4)} />
+          </Reveal>
+          <Reveal>
+            <AccountSection index={pad(5)} />
+          </Reveal>
+          <Reveal>
+            <DangerZoneSection index={pad(6)} />
+          </Reveal>
         </div>
       </div>
     </>

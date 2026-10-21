@@ -55,7 +55,7 @@ export function ProfileOnboarding({ repoMode }: { repoMode: RepoMode }) {
       <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-8 sm:items-center sm:pt-0">
         <div className="grid w-full max-w-4xl gap-10 md:grid-cols-[1fr_400px] md:items-center">
           <section aria-labelledby="welcome-title" className="max-w-md">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-primary">Welcome</p>
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">Welcome</p>
             <h1 id="welcome-title" className="mt-3 text-[32px] leading-[1.15] tracking-[-0.035em] text-text sm:text-[40px]">
               A calm place to check in with yourself, every day.
             </h1>

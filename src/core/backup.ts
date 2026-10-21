@@ -71,8 +71,13 @@ export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 /** Maximum number of Profiles a backup may hold (1.1, 20.27). */
 export const MAX_BACKUP_PROFILES = 3;
 
-/** Schema versions this build can read. Newer versions are rejected (17.4, 20.27). */
-export const SUPPORTED_SCHEMA_VERSIONS: readonly number[] = [SCHEMA_VERSION];
+/**
+ * Schema versions this build can read. Newer versions are rejected (17.4, 20.27).
+ * Version 3 added optional Message `channel`/`callId` (missing → "text").
+ * Version 2 only added the `reminders` store, which is not backed up, so the
+ * `data` sections of v1 and v2 documents are identical.
+ */
+export const SUPPORTED_SCHEMA_VERSIONS: readonly number[] = [1, 2, SCHEMA_VERSION];
 
 // ---------------------------------------------------------------------------
 // Sections
@@ -108,6 +113,18 @@ function shapeKeys(schema: z.ZodTypeAny): string[] {
 
 const SECTION_KEYS: Record<SectionName, string[]> = Object.fromEntries(
   SECTIONS.map((sec) => [sec.name, shapeKeys(sec.schema)]),
+) as Record<SectionName, string[]>;
+
+/** Keys that must be present (optional fields, e.g. Message `channel`, may be absent in older documents). */
+function requiredKeys(schema: z.ZodTypeAny): string[] {
+  let s: z.ZodTypeAny = schema;
+  while (s instanceof z.ZodEffects) s = s.innerType();
+  const shape = (s as z.AnyZodObject).shape as Record<string, z.ZodTypeAny>;
+  return Object.keys(shape).filter((k) => !shape[k]!.isOptional());
+}
+
+const REQUIRED_KEYS: Record<SectionName, string[]> = Object.fromEntries(
+  SECTIONS.map((sec) => [sec.name, requiredKeys(sec.schema)]),
 ) as Record<SectionName, string[]>;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -197,7 +214,7 @@ function validateSections(raw: unknown): Result<BackupData, BackupError> {
       const base = `data.${name}[${i}]`;
       const rec: unknown = section[i];
       if (!isRecord(rec)) return fail({ kind: "missing_field", field: base });
-      const missing = keys.find((k) => !hasOwn(rec, k));
+      const missing = REQUIRED_KEYS[name].find((k) => !hasOwn(rec, k));
       if (missing !== undefined) return fail({ kind: "missing_field", field: `${base}.${missing}` });
       const r = schema.safeParse(pick(rec, keys));
       if (!r.success) {

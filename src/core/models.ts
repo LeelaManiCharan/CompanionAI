@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 /** IndexedDB database version === schema version (16.3). */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 
 // ---------------------------------------------------------------------------
 // Primitive field schemas
@@ -105,6 +105,7 @@ export const RoleSchema = z.enum(["user", "companion"]);
 export const MemoryCategorySchema = z.enum(["fact", "mood", "event", "person"]);
 export const BackupLocationSchema = z.enum(["cloud", "file"]);
 export const ActivityConsentSchema = z.enum(["opt_in", "opt_out", "dismissed"]);
+export const ReminderStatusSchema = z.enum(["pending", "fired", "done", "cancelled"]);
 
 // ---------------------------------------------------------------------------
 // Ordering helpers
@@ -194,6 +195,10 @@ export const MessageSchema = z
     content: z.string().min(1).max(10_000),
     createdAt: Timestamp,
     safetyFlagged: z.boolean(),
+    /** Where the Message came from; missing (older data) means "text". */
+    channel: z.enum(["text", "voice"]).optional(),
+    /** Groups the Messages of one voice call. */
+    callId: Id.optional(),
   })
   .strict();
 
@@ -295,6 +300,23 @@ export const ProfileMetaSchema = z
   })
   .strict();
 
+/** Max stored reminder text length (24.2, 24.3). */
+export const REMINDER_TEXT_MAX = 200;
+
+/** A companion reminder "call" (Req 24). Not included in backups. */
+export const ReminderSchema = z
+  .object({
+    id: Id,
+    profileId: Id,
+    chatId: Id.nullable(),
+    text: trimmedString(1, REMINDER_TEXT_MAX),
+    dueAt: Timestamp,
+    createdAt: Timestamp,
+    status: ReminderStatusSchema,
+    firedAt: Timestamp.nullable(),
+  })
+  .strict();
+
 export const CloudStoreConfigSchema = z
   .object({
     supabaseUrl: HttpsUrl,
@@ -336,6 +358,8 @@ export type Summary = z.infer<typeof SummarySchema>;
 export type BackupMeta = z.infer<typeof BackupMetaSchema>;
 export type CheckIn = z.infer<typeof CheckInSchema>;
 export type ProfileMeta = z.infer<typeof ProfileMetaSchema>;
+export type ReminderStatus = z.infer<typeof ReminderStatusSchema>;
+export type Reminder = z.infer<typeof ReminderSchema>;
 export type CloudStoreConfig = z.infer<typeof CloudStoreConfigSchema>;
 export type BrowserRecord = z.infer<typeof BrowserRecordSchema>;
 
@@ -351,6 +375,7 @@ export const MODEL_SCHEMAS = {
   backupMeta: BackupMetaSchema,
   checkIns: CheckInSchema,
   profileMeta: ProfileMetaSchema,
+  reminders: ReminderSchema,
   browser: BrowserRecordSchema,
 } as const;
 

@@ -130,6 +130,7 @@ export async function deleteProfile(id: string): Promise<ServiceResult<string | 
       "summaries",
       "profileMeta",
       "checkIns",
+      "reminders",
     ],
     async (t) => {
       if (!(await t.get("profiles", id))) {
@@ -141,7 +142,13 @@ export async function deleteProfile(id: string): Promise<ServiceResult<string | 
       const chats = await t.getAllByIndex("chats", "byProfile", id);
       const logs = await t.getAllByIndex("activityLogs", "byProfile", id);
       const checkIns = await t.getAll("checkIns", IDBKeyRange.bound([id, ""], [id, MAX_STRING]));
+      const reminders = await t.getAllByIndex(
+        "reminders",
+        "byProfileDue",
+        IDBKeyRange.bound([id, ""], [id, MAX_STRING]),
+      );
 
+      for (const r of reminders) await t.delete("reminders", r.id);
       for (const m of memories) await t.delete("memories", m.id);
       for (const m of messages) await t.delete("messages", m.id);
       for (const c of chats) await t.delete("chats", c.id);

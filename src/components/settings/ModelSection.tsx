@@ -153,7 +153,7 @@ export function ModelSection({ index }: { index: string }) {
           </InlineAlert>
         ) : null}
 
-        <dl className="mt-4 grid gap-px overflow-hidden rounded-md border border-border bg-border text-[13px] sm:grid-cols-2">
+        <dl className="mt-4 grid gap-2 text-[13px] sm:grid-cols-2">
           <StatusCell label="Ollama (local)">
             {provider.ollamaHealthy ? (
               <Badge tone="green" dot>
@@ -256,7 +256,7 @@ export function ModelSection({ index }: { index: string }) {
 
 function StatusCell({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-bg px-3.5 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-subtle px-3.5 py-2.5">
       <dt className="text-muted">{label}</dt>
       <dd className="min-w-0">{children}</dd>
     </div>
@@ -313,8 +313,8 @@ function HostedPrivacyNote() {
           to Google through this site&apos;s server.
         </li>
         <li>
-          The hosted endpoint has no login. Anyone with this site&apos;s link can use it, so the shared free quota may
-          run out. Rate limiting is best-effort only.
+          Only signed-in users can use the hosted endpoint. The free Gemini quota is shared among all signed-in users,
+          so it may run out. Rate limiting is best-effort only.
         </li>
         <li>Choose Ollama only to keep every conversation on your own machine.</li>
       </ul>

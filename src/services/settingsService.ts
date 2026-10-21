@@ -30,6 +30,7 @@ import {
   validateSupabaseUrl,
 } from "@/core/validators";
 import { getRepo, initRepo, type Repo } from "@/data/repository";
+import { schedulePreferencesPush } from "./preferencesSync";
 import { getActiveProfileId, opFor, setEpoch } from "./session";
 import type { ServiceResult } from "./profileService";
 
@@ -78,18 +79,31 @@ async function updateSettings(
   return res.ok ? ok(res.value) : fail(SETTINGS_ERRORS.notSaved);
 }
 
+/**
+ * Saves a synced Settings field (22.13): commit locally first, then push to
+ * User_Preferences in the background. A failed push never undoes the save.
+ */
+async function updateSyncedSettings(
+  patch: Partial<Omit<Settings, "profileId" | "updatedAt">>,
+  profileId: string | null,
+): Promise<ServiceResult<Settings>> {
+  const res = await updateSettings(patch, profileId);
+  if (res.ok) schedulePreferencesPush(res.value.profileId);
+  return res;
+}
+
 /** 2.1, 2.6, 2.7 */
 export async function saveBotName(input: string, profileId = getActiveProfileId()): Promise<ServiceResult<Settings>> {
   const v = validateBotName(input);
   if (!v.ok) return fail(v.error);
-  return updateSettings({ botName: v.value }, profileId);
+  return updateSyncedSettings({ botName: v.value }, profileId);
 }
 
 /** 2.2, 2.7 */
 export async function saveTone(tone: Tone, profileId = getActiveProfileId()): Promise<ServiceResult<Settings>> {
   const v = ToneSchema.safeParse(tone);
   if (!v.success) return fail(SETTINGS_ERRORS.tone);
-  return updateSettings({ tone: v.data }, profileId);
+  return updateSyncedSettings({ tone: v.data }, profileId);
 }
 
 /** 6.2 */
@@ -99,7 +113,7 @@ export async function saveProviderMode(
 ): Promise<ServiceResult<Settings>> {
   const v = ProviderModeSchema.safeParse(mode);
   if (!v.success) return fail(SETTINGS_ERRORS.providerMode);
-  return updateSettings({ providerMode: v.data }, profileId);
+  return updateSyncedSettings({ providerMode: v.data }, profileId);
 }
 
 /** 6.3, 6.14: both values are validated before either is saved. */
@@ -112,7 +126,7 @@ export async function saveOllama(
   if (!url.ok) return fail(url.error);
   const m = validateOllamaModel(model);
   if (!m.ok) return fail(m.error);
-  return updateSettings({ ollamaBaseUrl: url.value, ollamaModel: m.value }, profileId);
+  return updateSyncedSettings({ ollamaBaseUrl: url.value, ollamaModel: m.value }, profileId);
 }
 
 /** 12.4, 12.5: `null` clears the override. */
@@ -120,10 +134,10 @@ export async function saveCheckInOverride(
   hhmm: string | null,
   profileId = getActiveProfileId(),
 ): Promise<ServiceResult<Settings>> {
-  if (hhmm === null) return updateSettings({ checkInTimeOverride: null }, profileId);
+  if (hhmm === null) return updateSyncedSettings({ checkInTimeOverride: null }, profileId);
   const v = validateCheckInTime(hhmm);
   if (!v.ok) return fail(v.error);
-  return updateSettings({ checkInTimeOverride: v.value }, profileId);
+  return updateSyncedSettings({ checkInTimeOverride: v.value }, profileId);
 }
 
 /** 11.4: existing Activity_Logs are not touched. */
@@ -131,14 +145,14 @@ export async function saveActivityTracking(
   enabled: boolean,
   profileId = getActiveProfileId(),
 ): Promise<ServiceResult<Settings>> {
-  return updateSettings({ activityTrackingEnabled: enabled === true }, profileId);
+  return updateSyncedSettings({ activityTrackingEnabled: enabled === true }, profileId);
 }
 
 export async function saveNotificationsEnabled(
   enabled: boolean,
   profileId = getActiveProfileId(),
 ): Promise<ServiceResult<Settings>> {
-  return updateSettings({ notificationsEnabled: enabled === true }, profileId);
+  return updateSyncedSettings({ notificationsEnabled: enabled === true }, profileId);
 }
 
 /** 6.21: records when the Gemini_Privacy_Notice was accepted. */
@@ -171,7 +185,9 @@ export async function saveActivityConsent(
     await t.put("profileMeta", nextMeta);
     return { settings: nextSettings, meta: nextMeta };
   });
-  return res.ok ? ok(res.value) : fail(SETTINGS_ERRORS.notSaved);
+  if (!res.ok) return fail(SETTINGS_ERRORS.notSaved);
+  schedulePreferencesPush(profileId); // activityTrackingEnabled is synced (22.13)
+  return ok(res.value);
 }
 
 // ---------------------------------------------------------------------------

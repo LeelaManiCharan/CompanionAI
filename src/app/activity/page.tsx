@@ -26,6 +26,7 @@ import {
   IconSettings,
   IconTrash,
   InlineAlert,
+  Reveal,
   Skeleton,
   useToast,
 } from "@/components/ui";
@@ -89,7 +90,7 @@ export default function ActivityPage() {
   return (
     <AppShell>
       <header className="flex flex-col gap-1.5">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Activity</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">Activity</p>
         <h1 className="text-[28px] leading-tight tracking-[-0.03em] text-text">Your activity</h1>
         <p className="max-w-xl text-muted">
           A record of when {profile.displayName} used the app, kept on this device so {settings.botName} can pick a good
@@ -99,48 +100,52 @@ export default function ActivityPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
         <aside className="flex flex-col gap-4 lg:sticky lg:top-20">
-          <Card as="section" aria-labelledby="tracking-title" className="p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="tracking-title" className="text-base tracking-[-0.02em] text-text">
-                Tracking
-              </h2>
-              <Badge tone={enabled ? "green" : "neutral"} dot>
-                {enabled ? "On" : "Off"}
-              </Badge>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              {enabled
-                ? "New sessions are recorded while this tab is open and visible."
-                : "Nothing new is being recorded. Sessions below, if any, were saved earlier."}
-            </p>
-            <ButtonLink
-              href={SETTINGS_HREF}
-              variant="secondary"
-              className="mt-4"
-              fullWidth
-              leadingIcon={<IconSettings size={16} />}
-            >
-              {enabled ? "Turn off in Settings" : "Turn on in Settings"}
-            </ButtonLink>
-          </Card>
+          <Reveal>
+            <Card as="section" aria-labelledby="tracking-title" className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="tracking-title" className="text-base tracking-[-0.02em] text-text">
+                  Tracking
+                </h2>
+                <Badge tone={enabled ? "green" : "neutral"} dot>
+                  {enabled ? "On" : "Off"}
+                </Badge>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {enabled
+                  ? "New sessions are recorded while this tab is open and visible."
+                  : "Nothing new is being recorded. Sessions below, if any, were saved earlier."}
+              </p>
+              <ButtonLink
+                href={SETTINGS_HREF}
+                variant="secondary"
+                className="mt-4"
+                fullWidth
+                leadingIcon={<IconSettings size={16} />}
+              >
+                {enabled ? "Turn off in Settings" : "Turn on in Settings"}
+              </ButtonLink>
+            </Card>
+          </Reveal>
 
-          <Card as="section" muted aria-labelledby="disclosure-title" className="p-5">
-            <h2 id="disclosure-title" className="text-base tracking-[-0.02em] text-text">
-              What&apos;s tracked
-            </h2>
-            <p className="mt-1 text-sm text-muted">Only these four things, nothing else:</p>
-            <dl className="mt-3 flex flex-col gap-2.5 text-sm">
-              {TRACKED.map((t) => (
-                <div key={t.term} className="flex flex-col">
-                  <dt className="font-medium text-text">{t.term}</dt>
-                  <dd className="text-muted">{t.detail}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-4 border-t border-border pt-3 text-[13px] leading-5 text-muted">
-              Used only to schedule check-ins. It never leaves this device unless you include it in a backup.
-            </p>
-          </Card>
+          <Reveal delay={80}>
+            <Card as="section" muted aria-labelledby="disclosure-title" className="p-5">
+              <h2 id="disclosure-title" className="text-base tracking-[-0.02em] text-text">
+                What&apos;s tracked
+              </h2>
+              <p className="mt-1 text-sm text-muted">Only these four things, nothing else:</p>
+              <dl className="mt-3 flex flex-col gap-2.5 text-sm">
+                {TRACKED.map((t) => (
+                  <div key={t.term} className="flex flex-col">
+                    <dt className="font-medium text-text">{t.term}</dt>
+                    <dd className="text-muted">{t.detail}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-4 border-t border-border pt-3 text-[13px] leading-5 text-muted">
+                Used only to schedule check-ins. It never leaves this device unless you include it in a backup.
+              </p>
+            </Card>
+          </Reveal>
         </aside>
 
         <section aria-labelledby="sessions-title" className="min-w-0">
@@ -155,66 +160,68 @@ export default function ActivityPage() {
             </InlineAlert>
           ) : null}
 
-          <Card className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-              <div className="min-w-0">
-                <h2 id="sessions-title" className="text-base tracking-[-0.02em] text-text">
-                  Sessions
-                </h2>
-                {hasLogs ? (
-                  <p className="mt-0.5 font-mono text-[12px] tabular-nums text-muted">
-                    {logs!.length} {logs!.length === 1 ? "session" : "sessions"} ·{" "}
-                    <span aria-label={durationLabel(totalSeconds)}>{formatDuration(totalSeconds)}</span> total
-                  </p>
-                ) : null}
+          <Reveal delay={120}>
+            <Card className="overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3 pt-5">
+                <div className="min-w-0">
+                  <h2 id="sessions-title" className="text-base tracking-[-0.02em] text-text">
+                    Sessions
+                  </h2>
+                  {hasLogs ? (
+                    <p className="mt-0.5 font-mono text-[12px] tabular-nums text-muted">
+                      {logs!.length} {logs!.length === 1 ? "session" : "sessions"} ·{" "}
+                      <span aria-label={durationLabel(totalSeconds)}>{formatDuration(totalSeconds)}</span> total
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  variant="ghost"
+                  className="text-danger! hover:bg-danger/[0.05]!"
+                  leadingIcon={<IconTrash size={16} />}
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={!canWrite || !hasLogs}
+                >
+                  Clear all
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                className="text-danger! hover:bg-danger/[0.05]!"
-                leadingIcon={<IconTrash size={16} />}
-                onClick={() => setConfirmOpen(true)}
-                disabled={!canWrite || !hasLogs}
-              >
-                Clear all
-              </Button>
-            </div>
 
-            {logsQ.loading && !logs ? (
-              <div aria-busy="true" className="flex flex-col gap-3 px-5 py-5">
-                <span className="sr-only">Loading activity</span>
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-5!" />
-                ))}
-              </div>
-            ) : logsQ.error && !logs ? (
-              <div className="p-5">
-                <InlineAlert tone="danger" title="Activity could not be loaded">
-                  Your stored activity was not changed. Try reloading the page.
-                </InlineAlert>
-              </div>
-            ) : !hasLogs ? (
-              <div className="p-5">
-                <EmptyState
-                  icon={<IconActivity size={18} />}
-                  title="No activity recorded"
-                  description={
-                    enabled
-                      ? "Sessions show up here after you switch away from or close this tab."
-                      : "Tracking is off, so no sessions are recorded."
-                  }
-                  actions={
-                    enabled ? null : (
-                      <ButtonLink href={SETTINGS_HREF} variant="secondary">
-                        Open Settings
-                      </ButtonLink>
-                    )
-                  }
-                />
-              </div>
-            ) : (
-              <SessionsTable logs={logs!} />
-            )}
-          </Card>
+              {logsQ.loading && !logs ? (
+                <div aria-busy="true" className="flex flex-col gap-3 px-5 py-5">
+                  <span className="sr-only">Loading activity</span>
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-5!" />
+                  ))}
+                </div>
+              ) : logsQ.error && !logs ? (
+                <div className="p-5">
+                  <InlineAlert tone="danger" title="Activity could not be loaded">
+                    Your stored activity was not changed. Try reloading the page.
+                  </InlineAlert>
+                </div>
+              ) : !hasLogs ? (
+                <div className="p-5">
+                  <EmptyState
+                    icon={<IconActivity size={18} />}
+                    title="No activity recorded"
+                    description={
+                      enabled
+                        ? "Sessions show up here after you switch away from or close this tab."
+                        : "Tracking is off, so no sessions are recorded."
+                    }
+                    actions={
+                      enabled ? null : (
+                        <ButtonLink href={SETTINGS_HREF} variant="secondary">
+                          Open Settings
+                        </ButtonLink>
+                      )
+                    }
+                  />
+                </div>
+              ) : (
+                <SessionsTable logs={logs!} />
+              )}
+            </Card>
+          </Reveal>
         </section>
       </div>
 
@@ -248,7 +255,7 @@ function SessionsTable({ logs }: { logs: ActivityLog[] }) {
       <table className="w-full min-w-[560px] border-collapse text-left text-sm">
         <caption className="sr-only">Recorded sessions, most recent first</caption>
         <thead>
-          <tr className="border-b border-border bg-bg-subtle">
+          <tr className="border-b border-border/70">
             {["Started", "Ended", "Duration", "Page"].map((h, i) => (
               <th
                 key={h}

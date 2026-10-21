@@ -22,9 +22,9 @@ export function HelpButton({ tone = "light", className }: HelpButtonProps) {
       aria-label="Help: show crisis resources"
       title="Help and crisis resources"
       className={cn(
-        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium tracking-[-0.01em] transition-colors duration-150",
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium tracking-[-0.01em] transition-all duration-200",
         tone === "light"
-          ? "border-border bg-bg text-text shadow-card hover:bg-bg-subtle active:bg-surface"
+          ? "border-border bg-bg text-text shadow-card hover:border-danger/30 hover:bg-bg-subtle active:bg-surface"
           : "border-white/30 bg-white/5 text-white hover:bg-white/10 focus-visible:outline-white",
         className,
       )}

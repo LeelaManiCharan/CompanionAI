@@ -1,5 +1,5 @@
 /**
- * Notification_Service (Req 13). Browser-only; every function is SSR-safe and
+ * Notification_Service (Req 13, 24.6). Browser-only; every function is SSR-safe and
  * feature-detects before touching Notification / ServiceWorker APIs.
  */
 
@@ -9,6 +9,16 @@ export const CALL_URL = "/call?from=checkin";
 const SW_URL = "/sw.js";
 const MAX_BODY = 120;
 const DEFAULT_BODY = "Got a minute to check in?";
+
+/** URL that answers a reminder call (24.6). */
+export function reminderCallUrl(reminderId: string): string {
+  return `/call?from=reminder&reminder=${encodeURIComponent(reminderId)}`;
+}
+
+/** Only same-origin call-page paths are accepted as notification click targets. */
+export function safeCallUrl(url: unknown): string {
+  return typeof url === "string" && /^\/call(?:\?|$)/.test(url) ? url : CALL_URL;
+}
 
 let registration: ServiceWorkerRegistration | null = null;
 let registering: Promise<ServiceWorkerRegistration | null> | null = null;
@@ -83,6 +93,12 @@ export interface CheckInNotification {
   body: string;
 }
 
+export interface ReminderNotification {
+  reminderId: string;
+  botName: string;
+  text: string;
+}
+
 function normalizeBody(body: string): string {
   const trimmed = body.trim();
   if (trimmed.length === 0) return DEFAULT_BODY;
@@ -90,30 +106,23 @@ function normalizeBody(body: string): string {
   return trimmed.slice(0, MAX_BODY - 1).trimEnd() + "…";
 }
 
-function navigateToCall(): void {
+function navigateToCall(url: string): void {
   if (!hasWindow()) return;
   try {
     window.focus();
   } catch {
     // ignore
   }
-  window.location.assign(CALL_URL);
+  window.location.assign(url);
 }
 
-/**
- * Shows one check-in notification (13.3). The tag collapses duplicates for the same
- * profile and date. Returns true when a notification was shown.
- */
-export async function showCheckIn(input: CheckInNotification): Promise<boolean> {
+/** Shows a "{botName} is calling" notification that opens `url` when clicked. */
+async function showCall(botNameRaw: string, body: string, tag: string, url: string): Promise<boolean> {
   if (!isSupported() || window.Notification.permission !== "granted") return false;
 
-  const botName = input.botName.trim() || "Companion";
+  const botName = botNameRaw.trim() || "Companion";
   const title = `${botName} is calling`;
-  const options: NotificationOptions = {
-    body: normalizeBody(input.body),
-    tag: `checkin-${input.profileId}-${input.date}`,
-    data: { url: CALL_URL },
-  };
+  const options: NotificationOptions = { body: normalizeBody(body), tag, data: { url } };
 
   if (!useFallback) {
     const reg = registration ?? (await registerServiceWorker());
@@ -132,7 +141,7 @@ export async function showCheckIn(input: CheckInNotification): Promise<boolean> 
     n.onclick = (event) => {
       event.preventDefault();
       n.close();
-      navigateToCall();
+      navigateToCall(url);
     };
     return true;
   } catch {
@@ -140,8 +149,29 @@ export async function showCheckIn(input: CheckInNotification): Promise<boolean> 
   }
 }
 
-/** Subscribes to `{type:"open-call"}` messages from the service worker. Returns an unsubscribe fn. */
-export function onOpenCall(cb: () => void): () => void {
+/**
+ * Shows one check-in notification (13.3). The tag collapses duplicates for the same
+ * profile and date. Returns true when a notification was shown.
+ */
+export function showCheckIn(input: CheckInNotification): Promise<boolean> {
+  return showCall(input.botName, input.body, `checkin-${input.profileId}-${input.date}`, CALL_URL);
+}
+
+/** Shows a reminder call notification (24.6); clicking opens the reminder call. */
+export function showReminder(input: ReminderNotification): Promise<boolean> {
+  return showCall(
+    input.botName,
+    `Reminder: ${input.text}`,
+    `reminder-${input.reminderId}`,
+    reminderCallUrl(input.reminderId),
+  );
+}
+
+/**
+ * Subscribes to `{type:"open-call", url?}` messages from the service worker.
+ * The callback receives a safe `/call…` URL. Returns an unsubscribe fn.
+ */
+export function onOpenCall(cb: (url: string) => void): () => void {
   if (!serviceWorkerSupported()) return () => {};
   const handler = (event: MessageEvent) => {
     const data: unknown = event.data;
@@ -150,7 +180,7 @@ export function onOpenCall(cb: () => void): () => void {
       data !== null &&
       (data as { type?: unknown }).type === "open-call"
     ) {
-      cb();
+      cb(safeCallUrl((data as { url?: unknown }).url));
     }
   };
   navigator.serviceWorker.addEventListener("message", handler);

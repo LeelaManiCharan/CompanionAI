@@ -39,7 +39,7 @@ export function CallAvatar({ botName, activity, dimmed = false, className }: Cal
 
       <span
         className={cn(
-          "relative grid size-full place-items-center rounded-full border border-white/25 bg-white/10",
+          "relative grid size-full place-items-center rounded-full border border-white/25 bg-gradient-to-br from-white/20 to-white/5",
           "text-6xl font-semibold tracking-[-0.04em] text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] sm:text-7xl",
           "transition-opacity duration-300",
           dimmed && "opacity-60",

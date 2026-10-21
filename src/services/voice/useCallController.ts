@@ -22,7 +22,7 @@ import type { Tone } from "@/core/models";
 import type { ServiceResult } from "@/services/profileService";
 import { setCallActive as setTrackerCallActive } from "@/services/activityTracker";
 import {
-  createChat,
+  getOrCreateMainChat,
   getActiveCallChatId,
   requestReply,
   setCallActive as setChatCallActive,
@@ -31,6 +31,7 @@ import {
 } from "@/services/chatService";
 import { markCheckInCompleted } from "@/services/checkInCompletion";
 import { onChatEnded } from "@/services/memoryService";
+import { completeReminder } from "@/services/reminderService";
 import { getActiveProfileId, subscribeSession } from "@/services/session";
 import { acquireCallLock } from "@/services/tabCoordinator";
 import {
@@ -81,6 +82,8 @@ export interface CallDeps {
   tone: Tone;
   showCrisis: () => void;
   checkStorage: () => Promise<void>;
+  /** The Reminder this call answers, if any (24.7). */
+  reminder?: { id: string; text: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +101,21 @@ export function callGreeting(displayName: string, botName: string, tone: Tone): 
     case "calm":
     default:
       return `Hello ${name}, it's ${botName}. How are you doing today?`;
+  }
+}
+
+/** Greeting for a call that answers a Reminder (24.7), phrased for the Tone. */
+export function reminderGreeting(displayName: string, botName: string, tone: Tone, text: string): string {
+  const name = displayName.trim();
+  const what = text.trim().replace(/[.!?]+$/, "");
+  switch (tone) {
+    case "cheerful":
+      return `Hi ${name}! It's ${botName}. Just calling to remind you: ${what}. Have fun!`;
+    case "playful":
+      return `Hey ${name}, ${botName} here with your reminder: ${what}. Don't say I didn't tell you!`;
+    case "calm":
+    default:
+      return `Hey ${name}, it's ${botName}. Just calling to remind you: ${what}.`;
   }
 }
 
@@ -128,6 +146,8 @@ type UserStore = Promise<ServiceResult<{ message: { id: string } }> | null>;
 /** Resources of one started call. */
 interface Session {
   profileId: string;
+  /** Groups this call's Messages in the shared Chat. */
+  callId: string;
   chatId: string | null;
   release: (() => void) | null;
   recognizer: Recognizer | null;
@@ -232,14 +252,14 @@ class CallController {
         return;
       case "storeUserMessage":
         if (!s?.chatId) return;
-        s.lastUserStore = this.enqueueStore(s, () => storeUserMessage(s.chatId!, fx.text));
+        s.lastUserStore = this.enqueueStore(s, () => storeUserMessage(s.chatId!, fx.text, { channel: "voice", callId: s.callId }));
         return;
       case "requestReply":
         if (s) void this.requestReply(s, fx.requestId);
         return;
       case "storeCompanionMessage":
         if (replyAlreadyStored || !s?.chatId) return;
-        void this.enqueueStore(s, () => storeCompanionMessage(s.chatId!, fx.text));
+        void this.enqueueStore(s, () => storeCompanionMessage(s.chatId!, fx.text, { channel: "voice", callId: s.callId }));
         return;
       case "startFallbackTimer": {
         if (!s) return;
@@ -290,7 +310,7 @@ class CallController {
       return;
     }
 
-    const chat = await createChat(s.profileId, "voice").catch(() => null);
+    const chat = await getOrCreateMainChat(s.profileId).catch(() => null);
     if (this.session !== s || this.machine.phase !== "requestingMic") return;
     if (!chat || !chat.ok) {
       this.set({ starting: false, error: chat && !chat.ok ? chat.error : START_FAILED });
@@ -326,16 +346,21 @@ class CallController {
     }, 250);
 
     this.set({ starting: false, chatId: s.chatId, elapsedMs: 0 });
-    const { displayName, botName, tone } = this.deps;
-    this.dispatch({ type: "micGranted", greeting: callGreeting(displayName, botName, tone) }); // 5.3
+    const { displayName, botName, tone, reminder } = this.deps;
+    if (reminder) void completeReminder(reminder.id).catch(() => undefined); // 24.7
+    const greeting = reminder
+      ? reminderGreeting(displayName, botName, tone, reminder.text)
+      : callGreeting(displayName, botName, tone);
+    this.dispatch({ type: "micGranted", greeting }); // 5.3
   }
 
   private async requestReply(s: Session, requestId: number): Promise<void> {
     const stored = s.lastUserStore;
     const ac = new AbortController();
     s.aborts.add(ac);
-    const failed = () => {
-      if (this.session === s) this.dispatch({ type: "replyFailed", requestId, at: Date.now() });
+    // The machine speaks an in-character line; busy/quota gets its own wording.
+    const failed = (busy = false) => {
+      if (this.session === s) this.dispatch({ type: "replyFailed", requestId, at: Date.now(), busy });
     };
     try {
       const res = await stored;
@@ -347,7 +372,7 @@ class CallController {
       if (reply.reply && !reply.discarded) {
         this.dispatch({ type: "replyReceived", requestId, text: reply.reply.content, at: Date.now() });
       } else {
-        failed();
+        failed(reply.error?.providerError?.kind === "busy");
       }
     } catch {
       failed();
@@ -425,6 +450,7 @@ class CallController {
 
     this.session = {
       profileId,
+      callId: crypto.randomUUID(),
       chatId: null,
       release,
       recognizer: null,

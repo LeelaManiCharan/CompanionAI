@@ -23,7 +23,7 @@ export function EmptyState({ icon, title, description, actions, as: Heading = "h
       {icon ? (
         <div
           aria-hidden="true"
-          className="mb-4 flex size-10 items-center justify-center rounded-md border border-border bg-bg text-primary shadow-card"
+          className="mb-4 flex size-11 items-center justify-center rounded-full bg-gradient-brand text-white shadow-glow"
         >
           {icon}
         </div>

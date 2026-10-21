@@ -15,20 +15,20 @@ export function QuickLinksCard() {
     <Card as="section" aria-labelledby="shortcuts-heading" className="overflow-hidden">
       <h2
         id="shortcuts-heading"
-        className="border-b border-border px-5 py-3 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted"
+        className="px-5 pb-2 pt-5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand"
       >
         Shortcuts
       </h2>
-      <ul className="divide-y divide-border">
+      <ul className="flex flex-col gap-0.5 px-2 pb-2">
         {LINKS.map((l) => (
           <li key={l.href}>
             <Link
               href={l.href}
-              className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-offset-[-2px]"
+              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-subtle focus-visible:bg-bg-subtle"
             >
               <span
                 aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-primary"
+                className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-primary transition-all duration-200 group-hover:border-transparent group-hover:bg-gradient-brand group-hover:text-white group-hover:shadow-glow"
               >
                 {l.icon}
               </span>

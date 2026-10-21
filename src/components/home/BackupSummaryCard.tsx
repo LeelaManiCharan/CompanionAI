@@ -15,7 +15,7 @@ export function BackupSummaryCard({ nowMs }: { nowMs: number }) {
       <div className="flex items-start gap-3.5">
         <span
           aria-hidden="true"
-          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-accent text-primary"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-white shadow-glow"
         >
           <IconCloudUpload size={18} />
         </span>

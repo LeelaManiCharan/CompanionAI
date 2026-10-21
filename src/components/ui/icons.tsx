@@ -123,6 +123,15 @@ export const IconTrash = createIcon(
 
 export const IconPlus = createIcon("Plus", <path d="M12 5v14M5 12h14" />);
 
+export const IconLogOut = createIcon(
+  "LogOut",
+  <>
+    <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+    <path d="M10 16.5 5.5 12 10 7.5" />
+    <path d="M5.5 12H15" />
+  </>,
+);
+
 export const IconChevronLeft = createIcon("ChevronLeft", <path d="m15 18-6-6 6-6" />);
 
 export const IconHelp = createIcon(

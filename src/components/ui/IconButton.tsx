@@ -11,7 +11,7 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "ari
 };
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "border-primary bg-primary text-white hover:bg-primary-hover active:bg-primary-deep",
+  primary: "border-transparent bg-gradient-brand text-white shadow-glow hover:brightness-[1.06] active:brightness-95",
   secondary: "border-border bg-bg text-text shadow-card hover:bg-bg-subtle active:bg-surface",
   ghost: "border-transparent bg-transparent text-muted hover:bg-surface hover:text-text active:bg-surface-2",
   danger: "border-danger bg-danger text-white hover:brightness-95 active:brightness-90",

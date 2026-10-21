@@ -14,7 +14,13 @@ export const ECHO_WINDOW_MS = 2_000;
 /** Automatic recognizer restarts before giving up (Req 5.12). */
 export const MAX_RECOGNIZER_RESTARTS = 3;
 
-export const FALLBACK_CAPTION = "Sorry, I couldn't respond just now. Please try saying that again.";
+/**
+ * In-character line spoken and captioned when a reply fails or times out.
+ * Never stored as a companion Message.
+ */
+export const FALLBACK_CAPTION = "Sorry, I lost my train of thought for a second. Could you say that again?";
+/** Same, when the hosted model reported busy/quota. */
+export const BUSY_CAPTION = "I'm a little overwhelmed right now — give me a moment and try again.";
 
 export type CallPhase =
   | "checking"
@@ -69,7 +75,7 @@ export type CallEvent =
   | { type: "recognizerStopped"; at: number }
   | { type: "fallbackTimeout"; requestId: number; at: number }
   | { type: "replyReceived"; requestId: number; text: string; at: number }
-  | { type: "replyFailed"; requestId: number; at: number }
+  | { type: "replyFailed"; requestId: number; at: number; busy?: boolean }
   | { type: "mute" }
   | { type: "unmute" }
   | { type: "end" };
@@ -170,15 +176,25 @@ function crisisPrefix(req: ReplyRequest): string[] {
   return [VOICE_CRISIS_LINE];
 }
 
-/** Shared path for the 15 s timeout and an early error (Req 5.11). */
-function fallback(s: CallState, fx: CallEffect[], req: ReplyRequest, at: number, keepLate: boolean): void {
+/**
+ * Shared path for the 15 s timeout and an early error (Req 5.11). The
+ * companion stays in character: the line is captioned and spoken like a
+ * reply, but never stored as a Message. Listening resumes after it is spoken.
+ */
+function fallback(
+  s: CallState,
+  fx: CallEffect[],
+  req: ReplyRequest,
+  at: number,
+  keepLate: boolean,
+  line: string = FALLBACK_CAPTION,
+): void {
   fx.push({ type: "cancelFallbackTimer", requestId: req.id });
   s.pending = null;
   if (keepLate) s.late = { ...req, fallbackAt: at, speechAfterFallback: false };
-  caption(s, fx, FALLBACK_CAPTION, "fallback");
+  caption(s, fx, line, "companion");
   const prefix = crisisPrefix(keepLate && s.late ? s.late : req);
-  if (prefix.length > 0) speakAll(s, fx, prefix);
-  else toListening(s, fx);
+  speakAll(s, fx, [...prefix, line]);
 }
 
 export function reduceCall(state: CallState, event: CallEvent): CallResult {
@@ -285,7 +301,7 @@ export function reduceCall(state: CallState, event: CallEvent): CallResult {
 
     case "replyFailed": {
       if (s.pending && s.pending.id === event.requestId) {
-        fallback(s, fx, s.pending, event.at, false);
+        fallback(s, fx, s.pending, event.at, false, event.busy ? BUSY_CAPTION : FALLBACK_CAPTION);
       } else if (s.late && s.late.id === event.requestId) {
         s.late = null;
       }

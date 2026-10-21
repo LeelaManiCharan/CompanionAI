@@ -16,6 +16,7 @@ import {
   type Message,
   type Profile,
   type ProfileMeta,
+  type Reminder,
   type Settings,
   type StoreName,
   type Summary,
@@ -55,6 +56,7 @@ export interface CompanionDB extends DBSchema {
   backupMeta: { key: string; value: BackupMeta; indexes: { byCreated: string } };
   checkIns: { key: [string, string]; value: CheckIn };
   profileMeta: { key: string; value: ProfileMeta };
+  reminders: { key: string; value: Reminder; indexes: { byProfileDue: [string, string] } };
   browser: { key: "singleton"; value: BrowserRecord };
 }
 
@@ -113,6 +115,26 @@ export const migrations: Readonly<Record<number, Migration>> = {
     db.createObjectStore("profileMeta", { keyPath: "profileId" });
     // Browser-level record (19.15); its only key is "singleton".
     db.createObjectStore("browser", { keyPath: "id" });
+  },
+  // Companion reminders (Req 24).
+  2: (db) => {
+    const reminders = db.createObjectStore("reminders", { keyPath: "id" });
+    reminders.createIndex("byProfileDue", ["profileId", "dueAt"]);
+  },
+  // Message channel: voice for Messages of voice-mode Chats, text otherwise.
+  3: async (_db, tx) => {
+    const voiceChats = new Set<string>();
+    for (const chat of await tx.objectStore("chats").getAll()) {
+      if (chat.mode === "voice") voiceChats.add(chat.id);
+    }
+    let cursor = await tx.objectStore("messages").openCursor();
+    while (cursor) {
+      const m = cursor.value;
+      if (m.channel === undefined) {
+        await cursor.update({ ...m, channel: voiceChats.has(m.chatId) ? "voice" : "text" });
+      }
+      cursor = await cursor.continue();
+    }
   },
 };
 

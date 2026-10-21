@@ -2,27 +2,38 @@
 
 /**
  * AppRoot (design "Rendering and hydration strategy"; Req 1.5, 1.6, 16.2,
- * 16.7, 16.8, 20.19, 20.20).
+ * 16.7, 16.8, 20.19, 20.20, 22.10).
  *
- * Inside `useEffect` it opens the Local_Store (running migrations), loads the
- * browser record and the Active_Profile, then starts the Tab_Coordinator,
- * Activity_Tracker, Check_In_Scheduler, and service worker. Until that is done
- * it renders a static skeleton that is identical on server and client.
+ * Once a user is signed in, it opens that user's Local_Store
+ * (`companion-<userId>`, running migrations) inside `useEffect`, loads the
+ * browser record and the Active_Profile, then starts the Tab_Coordinator
+ * (scoped to the user), Activity_Tracker, Check_In_Scheduler, and service
+ * worker. Nothing touches IndexedDB before the user id is known, and the
+ * Public_Auth_Pages render without booting at all. A different user signing
+ * in tears the previous user's runtime down first. Until boot is done it
+ * renders a static skeleton that is identical on server and client.
  */
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import type { StoreName } from "@/core/models";
-import { initRepo, type Repo, type RepoMode } from "@/data/repository";
+import { initRepo, userDbName, type Repo, type RepoMode } from "@/data/repository";
+import { isPublicAuthPath } from "@/lib/authPaths";
+import { localTeardownSettled, teardownLocalData } from "@/services/localSession";
 import { useLiveQuery } from "@/data/useLiveQuery";
 import { startActivityTracker } from "@/services/activityTracker";
 import { regenerateIfStale } from "@/services/memoryService";
 import { modelRouter } from "@/services/modelRouter";
-import { CALL_URL, onOpenCall, registerServiceWorker, serviceWorkerSupported } from "@/services/notifications";
+import { onOpenCall, registerServiceWorker, serviceWorkerSupported } from "@/services/notifications";
 import { loadActiveProfile } from "@/services/profileService";
+import { attachAudioPrimer, stopRingtone } from "@/services/ringtone";
 import { startScheduler } from "@/services/scheduler";
 import { getServerSession, getSession, subscribeSession } from "@/services/session";
 import { acknowledgeGeminiNotice, ensureBrowserRecord } from "@/services/settingsService";
 import { startTabCoordinator } from "@/services/tabCoordinator";
+import { reconcile, seedPrimaryProfile, setPreferencesSyncUser } from "@/services/preferencesSync";
+import { useIsLeader } from "@/services/useTabState";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 import { ActivityDisclosureDialog } from "./ActivityDisclosureDialog";
 import { AppContext, type AppState } from "./appContext";
 import { AppSkeleton } from "./AppSkeleton";
@@ -57,8 +68,24 @@ function useProfileRecord<T>(
 
 export function AppRoot({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "/";
+  const onAuthPage = isPublicAuthPath(pathname);
+  const auth = useAuth();
+  const userId = auth.status === "signed_in" ? (auth.user?.id ?? null) : null;
+  const authUserRef = useRef(auth.user);
+  useEffect(() => {
+    authUserRef.current = auth.user;
+  });
+  const leader = useIsLeader();
+
   const [repo, setRepo] = useState<Repo | null>(null);
-  const [booted, setBooted] = useState(false);
+  /** The user id the runtime was booted for; boot is "done" only for the current user. */
+  const [bootedFor, setBootedFor] = useState<string | null>(null);
+  const booted = userId !== null && bootedFor === userId;
+  /** User whose runtime is started (or starting) in this tab. */
+  const runtimeUser = useRef<string | null>(null);
+  /** User whose preferences were reconciled in this tab (reset on sign-out). */
+  const reconciledFor = useRef<string | null>(null);
   const [persistDenied, setPersistDenied] = useState(false);
   const [usagePercent, setUsagePercent] = useState<number | null>(null);
 
@@ -101,11 +128,38 @@ export function AppRoot({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
 
   useEffect(() => {
+    if (!userId) {
+      // Signed out (or not known yet). Sign-out teardown is run by the
+      // AuthProvider; here we only drop references to the closed Local_Store.
+      if (auth.status === "signed_out") {
+        runtimeUser.current = null;
+        reconciledFor.current = null;
+        setRepo(null);
+        setBootedFor(null);
+      }
+      return;
+    }
+    // Auth pages (e.g. a /reset-password recovery visit) never boot the DB.
+    if (onAuthPage && runtimeUser.current !== userId) return;
+
     let cancelled = false;
     (async () => {
+      const previous = runtimeUser.current;
+      runtimeUser.current = userId;
+      if (previous && previous !== userId) {
+        // Different user in this tab: stop the previous user's runtime first.
+        setBootedFor(null);
+        setRepo(null);
+        await teardownLocalData();
+        if (cancelled) return;
+      }
+      // Never open while a teardown (sign-out, user switch) is still closing the DB.
+      await localTeardownSettled();
+      if (cancelled) return;
+
       let opened: Repo | null = null;
       try {
-        opened = await initRepo();
+        opened = await initRepo({ dbName: userDbName(userId) });
       } catch {
         opened = null;
       }
@@ -114,24 +168,33 @@ export function AppRoot({ children }: { children: ReactNode }) {
 
       if (opened && opened.mode !== "unavailable") {
         await ensureBrowserRecord();
+        // Preferences_Sync (22.12): a fresh Local_Store gets its Primary_Profile
+        // from the account's preferences (or the signup name).
+        const user = authUserRef.current;
+        const sb = getBrowserSupabase();
+        if (user && user.id === userId && sb) {
+          await seedPrimaryProfile(opened, sb, user).catch(() => undefined);
+          if (cancelled) return;
+          setPreferencesSyncUser(user);
+        }
         await loadActiveProfile();
       }
       if (cancelled) return;
 
-      // All of these are idempotent and SSR-safe.
-      startTabCoordinator();
+      // All of these are idempotent (per user) and SSR-safe.
+      startTabCoordinator(userId);
       startActivityTracker();
       startScheduler();
       if (serviceWorkerSupported()) void registerServiceWorker();
       void requestPersistence();
       void checkStorage();
 
-      setBooted(true);
+      setBootedFor(userId);
     })();
     return () => {
       cancelled = true;
     };
-  }, [checkStorage, requestPersistence]);
+  }, [userId, auth.status, onAuthPage, checkStorage, requestPersistence]);
 
   // Gemini_Privacy_Notice acceptance is stored per Profile (6.21).
   useEffect(() => {
@@ -142,7 +205,15 @@ export function AppRoot({ children }: { children: ReactNode }) {
   }, []);
 
   // Notification click → open the call screen (13.4).
-  useEffect(() => onOpenCall(() => router.push(CALL_URL)), [router]);
+  useEffect(() => onOpenCall((url) => router.push(url)), [router]);
+
+  // Unlock Web Audio on the first gesture so a later ring may play (autoplay policy).
+  useEffect(() => attachAudioPrimer(), []);
+
+  // Answering (opening /call) stops the ringtone.
+  useEffect(() => {
+    if (pathname === "/call" || pathname.startsWith("/call/")) stopRingtone();
+  }, [pathname]);
 
   // The active Profile record vanished (e.g. deleted in another tab): re-pick.
   useEffect(() => {
@@ -163,6 +234,17 @@ export function AppRoot({ children }: { children: ReactNode }) {
     if (!routerKey || !current) return;
     void modelRouter.refresh(current).catch(() => undefined);
   }, [routerKey]);
+
+  // Preferences_Sync startup last-write-wins (22.14), once per sign-in, leader tab only.
+  useEffect(() => {
+    if (!booted || !leader || repoMode !== "ready" || !userId || !repo) return;
+    if (reconciledFor.current === userId) return;
+    const user = authUserRef.current;
+    const sb = getBrowserSupabase();
+    if (!user || user.id !== userId || !sb) return;
+    reconciledFor.current = userId;
+    void reconcile(repo, sb, user).catch(() => undefined);
+  }, [booted, leader, repoMode, userId, repo]);
 
   // Summary regeneration pending from an earlier session (10.9).
   const regenerated = useRef(new Set<string>());
@@ -209,6 +291,9 @@ export function AppRoot({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  // Public_Auth_Pages render on their own: no Local_Store, no app chrome.
+  if (onAuthPage) return <>{children}</>;
 
   let content: ReactNode;
   if (!booted || !profile.settled || !settings.settled || !profileMeta.settled) {

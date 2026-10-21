@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useActiveProfile, useCanWrite, useSettings } from "@/components/app";
 import {
   Badge,
@@ -25,7 +25,7 @@ import { deleteChat } from "@/services/chatDeletion";
 import { isCallActive } from "@/services/chatService";
 import { ComposerDock } from "./ChatLayout";
 import { Composer, type ComposerHandle } from "./Composer";
-import { dayKey, dayLabel } from "./format";
+import { clockTime, dayKey, dayLabel } from "./format";
 import { MessageBubble, TypingIndicator } from "./MessageBubble";
 import { ReplyErrorAlert } from "./ReplyErrorAlert";
 import { consumeRestoreText, dismissSendError, startRetry, startSend, useChatSend } from "./sendStore";
@@ -35,6 +35,49 @@ import { useNow } from "./useNow";
 export const MESSAGE_PAGE = 500;
 
 type Window = { messages: Message[]; hasEarlier: boolean };
+
+/** Groups voice Messages by call; older voice Messages without a callId group per Chat. Null for text. */
+function callKey(m: Message | undefined): string | null {
+  if (!m || m.channel !== "voice") return null;
+  return m.callId ?? `legacy:${m.chatId}`;
+}
+
+/** First and last Message time of each call in the window. */
+function spansByCall(messages: Message[]): Map<string, { start: number; end: number }> {
+  const spans = new Map<string, { start: number; end: number }>();
+  for (const m of messages) {
+    const key = callKey(m);
+    if (key === null) continue;
+    const t = Date.parse(m.createdAt);
+    const cur = spans.get(key);
+    if (!cur) spans.set(key, { start: t, end: t });
+    else spans.set(key, { start: Math.min(cur.start, t), end: Math.max(cur.end, t) });
+  }
+  return spans;
+}
+
+/** "< 1 min", "2 min", "1 h 5 min". */
+function callDuration(start: number, end: number): string {
+  const mins = Math.round((end - start) / 60_000);
+  if (mins < 1) return "< 1 min";
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const rest = mins % 60;
+  return rest === 0 ? `${h} h` : `${h} h ${rest} min`;
+}
+
+function CallDivider({ children }: { children: ReactNode }) {
+  return (
+    <li className="my-4 flex items-center gap-3">
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted">
+        <IconPhone size={11} aria-hidden="true" />
+        {children}
+      </span>
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    </li>
+  );
+}
 
 /**
  * `/chat/[id]`: header, message list, typing indicator, errors with retry,
@@ -215,8 +258,9 @@ export function Conversation({ chatId }: { chatId: string }) {
   }
 
   const voice = chat.mode === "voice";
-  const title = chat.title || "Untitled chat";
+  const title = chat.title || `Chat with ${botName}`;
   const callActive = isCallActive(chatId);
+  const callSpans = spansByCall(messages);
 
   return (
     <>
@@ -291,8 +335,12 @@ export function Conversation({ chatId }: { chatId: string }) {
             const next = messages[i + 1];
             const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt);
             const nextNewDay = !next || dayKey(next.createdAt) !== dayKey(m.createdAt);
-            const groupStart = newDay || prev.role !== m.role;
-            const groupEnd = nextNewDay || next.role !== m.role;
+            const key = callKey(m);
+            const callStart = key !== null && (!prev || callKey(prev) !== key);
+            const callEnd = key !== null && (!next || callKey(next) !== key);
+            const groupStart = newDay || callStart || prev.role !== m.role || callKey(prev) !== key;
+            const groupEnd = nextNewDay || callEnd || next.role !== m.role || callKey(next) !== key;
+            const span = key !== null ? callSpans.get(key) : undefined;
             return (
               <Fragment key={m.id}>
                 {newDay ? (
@@ -304,7 +352,14 @@ export function Conversation({ chatId }: { chatId: string }) {
                     <span className="h-px flex-1 bg-border" />
                   </li>
                 ) : null}
+                {callStart ? (
+                  <CallDivider>
+                    Voice call · {clockTime(m.createdAt)}
+                    {span ? ` · ${callDuration(span.start, span.end)}` : ""}
+                  </CallDivider>
+                ) : null}
                 <MessageBubble message={m} botName={botName} groupStart={groupStart} groupEnd={groupEnd} />
+                {callEnd && !(callActive && i === messages.length - 1) ? <CallDivider>Call ended</CallDivider> : null}
               </Fragment>
             );
           })}
@@ -345,7 +400,7 @@ export function Conversation({ chatId }: { chatId: string }) {
         tone="danger"
         size="sm"
         title="Delete this chat?"
-        description={`${botName} will forget what was learned only from it.`}
+        description={`This deletes your whole conversation history with ${botName} and what was learned only from it.`}
         actions={
           <>
             <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={deleting}>

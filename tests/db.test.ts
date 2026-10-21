@@ -52,7 +52,7 @@ describe("openDatabase", () => {
   it("returns read_only when a migration throws and keeps the old version and data", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const name = freshName();
-    const v1 = await openDatabase(name);
+    const v1 = await openDatabase(name, { version: 1 });
     if (v1.mode !== "ready") throw new Error("setup failed");
     await v1.db.put("browser", {
       id: "singleton",
@@ -69,7 +69,7 @@ describe("openDatabase", () => {
     const res = await openDatabase(name, { version: 2, migrations: { ...migrations, 2: failing } });
     expect(res).toEqual({ mode: "read_only", reason: "migration_failed" });
 
-    const after = await openDatabase(name);
+    const after = await openDatabase(name, { version: 1 });
     expect(after.mode).toBe("ready");
     if (after.mode !== "ready") return;
     expect(after.db.version).toBe(1);

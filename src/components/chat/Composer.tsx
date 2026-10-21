@@ -73,8 +73,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     <form onSubmit={submit} className={cn("w-full", className)} aria-label="Send a message">
       <div
         className={cn(
-          "flex items-end gap-2 rounded-[12px] border border-border bg-bg p-1.5 pl-3.5 shadow-[0_1px_2px_rgb(17_24_20/0.05),0_4px_14px_rgb(17_24_20/0.04)]",
-          "transition-colors duration-150 focus-within:border-primary/60 hover:border-muted/50",
+          "flex items-end gap-2 rounded-[14px] border border-border bg-bg p-1.5 pl-3.5 shadow-card",
+          "transition-all duration-200 focus-within:border-primary/60 focus-within:shadow-glow hover:border-primary/30",
           disabled && "bg-bg-subtle",
         )}
       >
@@ -104,9 +104,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           aria-label={pending ? "Waiting for reply" : "Send message"}
           title={pending ? "Waiting for reply" : "Send (Enter)"}
           className={cn(
-            "inline-flex size-10 shrink-0 items-center justify-center rounded-[9px] border transition-colors duration-150",
-            "border-primary bg-primary text-white hover:bg-primary-hover active:bg-primary-deep",
-            "disabled:border-border disabled:bg-surface disabled:text-muted",
+            "inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border transition-all duration-200 active:scale-95",
+            "border-transparent bg-gradient-brand text-white shadow-glow hover:brightness-[1.06]",
+            "disabled:border-border disabled:bg-none disabled:bg-surface disabled:text-muted disabled:shadow-none disabled:brightness-100",
           )}
         >
           {pending ? <Spinner size={16} /> : <IconSend size={17} />}

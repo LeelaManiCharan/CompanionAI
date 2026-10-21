@@ -3,6 +3,7 @@
  * The browser never calls a Google endpoint and never sees the key.
  *
  * Status mapping:
+ *   401 → `unauthorized` (session expired; UI links to /login, 22.6)
  *   429 → `busy` (code from body `error.code`, `Retry-After` header)
  *   503 → `unavailable` (not configured)
  *   504 / timeout abort → `timeout`
@@ -63,6 +64,9 @@ export async function geminiGenerate(req: GenerationRequest, signal: AbortSignal
           ? { kind: "busy", provider: "gemini", code }
           : { kind: "busy", provider: "gemini", code, retryAfterS },
       );
+    }
+    if (res.status === 401) {
+      throw new ProviderError({ kind: "unauthorized", provider: "gemini" });
     }
     if (res.status === 503) {
       throw new ProviderError({ kind: "unavailable", provider: "gemini", reason: "not_configured" });

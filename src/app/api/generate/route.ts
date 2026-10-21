@@ -1,7 +1,9 @@
 /**
- * Generate_Route: POST /api/generate (Req 6A). No user authentication; the
- * in-memory Rate_Limiter is best-effort only (6A.13).
+ * Generate_Route: POST /api/generate (Req 6A). Requires a signed-in Supabase
+ * user (22.6); the in-memory Rate_Limiter is keyed per user and is
+ * best-effort only (6A.13, 22.7).
  */
+import { requireUser } from "@/server/auth";
 import { handleGenerate } from "@/server/handleGenerate";
 import { createRateLimiter } from "@/server/rateLimiter";
 
@@ -18,6 +20,7 @@ export function POST(req: Request): Promise<Response> {
     fetch: globalThis.fetch,
     now: Date.now,
     limiter,
+    requireUser,
   });
 }
 

@@ -19,6 +19,7 @@ import {
   IconTrash,
   IconUsers,
   InlineAlert,
+  Reveal,
   Skeleton,
   TextInput,
   useToast,
@@ -74,7 +75,7 @@ export default function ProfilesPage() {
   return (
     <AppShell width="narrow">
       <header className="flex flex-col gap-1.5">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Profiles</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">Profiles</p>
         <h1 className="text-[28px] leading-tight tracking-[-0.03em] text-text">Who&apos;s checking in?</h1>
         <p className="max-w-xl text-muted">
           Up to {MAX_PROFILES} people can share this browser. Each profile has its own chats, memories, activity, and
@@ -117,17 +118,18 @@ export default function ProfilesPage() {
           </InlineAlert>
         ) : (
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-            {(profiles ?? []).map((p) => (
-              <ProfileCard
-                key={p.id}
-                profile={p}
-                isActive={p.id === active.id}
-                canWrite={canWrite}
-                switching={switchingId === p.id}
-                switchDisabled={switchingId !== null}
-                onSwitch={() => void switchTo(p)}
-                onDelete={() => setPendingDelete(p)}
-              />
+            {(profiles ?? []).map((p, i) => (
+              <Reveal key={p.id} as="li" delay={i * 60}>
+                <ProfileCard
+                  profile={p}
+                  isActive={p.id === active.id}
+                  canWrite={canWrite}
+                  switching={switchingId === p.id}
+                  switchDisabled={switchingId !== null}
+                  onSwitch={() => void switchTo(p)}
+                  onDelete={() => setPendingDelete(p)}
+                />
+              </Reveal>
             ))}
             {Array.from({ length: Math.max(0, MAX_PROFILES - (profiles?.length ?? 0)) }, (_, i) => (
               <li key={`slot-${i}`}>
@@ -135,9 +137,9 @@ export default function ProfilesPage() {
                   type="button"
                   onClick={() => nameInputRef.current?.focus()}
                   disabled={!canWrite}
-                  className="flex h-full min-h-[184px] w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg-subtle text-sm text-muted transition-colors hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-60"
+                  className="group flex h-full min-h-[184px] w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg-subtle text-sm text-muted transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-60"
                 >
-                  <span className="inline-flex size-9 items-center justify-center rounded-full border border-border bg-bg">
+                  <span className="inline-flex size-9 items-center justify-center rounded-full border border-border bg-bg transition-all duration-200 group-hover:border-transparent group-hover:bg-gradient-brand group-hover:text-white group-hover:shadow-glow">
                     <IconPlus size={16} />
                   </span>
                   Open slot
@@ -192,16 +194,15 @@ function ProfileCard({
 }) {
   return (
     <Card
-      as="li"
       aria-current={isActive ? "true" : undefined}
       className={
-        "flex min-h-[184px] flex-col p-5 " + (isActive ? "border-primary/45! ring-1 ring-primary/15" : "")
+        "flex min-h-[184px] flex-col p-5 " + (isActive ? "border-primary/45! shadow-glow! ring-1 ring-primary/15" : "")
       }
     >
       <div className="flex items-start justify-between gap-2">
         <span
           aria-hidden="true"
-          className="inline-flex size-11 items-center justify-center rounded-full border border-primary/15 bg-accent text-[17px] font-semibold text-primary-deep"
+          className="inline-flex size-11 items-center justify-center rounded-full bg-gradient-brand text-[17px] font-semibold text-white shadow-glow"
         >
           {initialOf(profile.displayName)}
         </span>
@@ -290,11 +291,12 @@ function CreateProfileCard({
   };
 
   return (
+    <Reveal>
     <Card as="section" aria-labelledby="create-title" className="mt-10 overflow-hidden">
-      <div className="flex items-start gap-3 border-b border-border bg-bg-subtle px-5 py-4">
+      <div className="flex items-start gap-3 px-5 pb-4 pt-5">
         <span
           aria-hidden="true"
-          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-bg text-primary"
+          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-white shadow-glow"
         >
           <IconUsers size={16} />
         </span>
@@ -345,6 +347,7 @@ function CreateProfileCard({
         {failure ? <InlineAlert tone="danger">{failure}</InlineAlert> : null}
       </form>
     </Card>
+    </Reveal>
   );
 }
 

@@ -26,6 +26,7 @@ import {
   type Message,
   type Profile,
   type ProfileMeta,
+  type Reminder,
   type Settings,
   type StoreName,
   type Summary,
@@ -132,6 +133,8 @@ export interface Repo {
   getProfileMeta(profileId: string): Promise<ProfileMeta | undefined>;
   getCheckIn(profileId: string, date: string): Promise<CheckIn | undefined>;
   getBrowserRecord(): Promise<BrowserRecord | undefined>;
+  /** Reminders of a Profile, earliest due first (24.5, 24.8). */
+  remindersByProfile(profileId: string): Promise<Reminder[]>;
   /** Backup metadata, newest first. */
   listBackupMeta(): Promise<BackupMeta[]>;
 
@@ -169,6 +172,7 @@ const DEPENDENCIES: Readonly<Record<StoreName, readonly StoreName[]>> = {
   backupMeta: [],
   checkIns: ["profiles"],
   profileMeta: ["profiles"],
+  reminders: ["profiles", "chats"],
   browser: [],
 };
 
@@ -210,6 +214,12 @@ async function referenceFailures(t: RwTx, store: StoreName, rec: unknown): Promi
     const m = rec as Message;
     const chat = await t.objectStore("chats").get(m.chatId);
     if (!chat || chat.profileId !== m.profileId) failures.push("chatId");
+  } else if (store === "reminders") {
+    const rem = rec as Reminder;
+    if (rem.chatId !== null) {
+      const chat = await t.objectStore("chats").get(rem.chatId);
+      if (!chat || chat.profileId !== rem.profileId) failures.push("chatId");
+    }
   } else if (store === "memories") {
     const mem = rec as Memory;
     const chats = t.objectStore("chats");
@@ -459,6 +469,11 @@ export function createRepository(open: OpenResult, options: RepositoryOptions = 
     async getBrowserRecord() {
       return db ? db.get("browser", "singleton") : undefined;
     },
+    async remindersByProfile(profileId) {
+      if (!db) return [];
+      const range = IDBKeyRange.bound([profileId, ""], [profileId, MAX_STRING]);
+      return db.getAllFromIndex("reminders", "byProfileDue", range);
+    },
     async listBackupMeta() {
       if (!db) return [];
       return (await db.getAllFromIndex("backupMeta", "byCreated")).reverse();
@@ -487,7 +502,16 @@ interface IDBPObjectStoreLike {
 
 let instance: Repo | null = null;
 let opening: Promise<Repo> | null = null;
+/** IndexedDB name of the current (or opening) instance, e.g. `companion-<userId>` (22.10). */
+let instanceDbName: string | null = null;
+/** Incremented by `resetRepo`, so an open that finishes after a reset is discarded. */
+let generation = 0;
 const instanceListeners = new Set<() => void>();
+
+/** Local_Store name for a signed-in user (22.10). */
+export function userDbName(userId: string): string {
+  return `companion-${userId}`;
+}
 
 /** The shared Repo once `initRepo` has resolved; `null` before that and during SSR. */
 export function getRepo(): Repo | null {
@@ -505,34 +529,73 @@ function setInstance(repo: Repo | null) {
   for (const l of [...instanceListeners]) l();
 }
 
-/**
- * Opens the Local_Store once and shares the Repo. Idempotent: later calls get
- * the same promise. On the server it resolves to an `unavailable` repo without
- * touching IndexedDB and does not cache it.
- */
-export function initRepo(options: RepositoryOptions = {}): Promise<Repo> {
-  if (typeof window === "undefined") {
-    return Promise.resolve(createRepository({ mode: "unavailable", reason: "not_supported" }, options));
-  }
-  if (instance) return Promise.resolve(instance);
-  if (!opening) {
-    opening = import("./db")
-      .then(({ openDatabase }) => openDatabase())
-      .then((open) => {
-        const repo = createRepository(open, options);
-        setInstance(repo);
-        return repo;
-      })
-      .finally(() => {
-        opening = null;
-      });
-  }
-  return opening;
+export interface InitRepoOptions extends RepositoryOptions {
+  /**
+   * IndexedDB database to open (`userDbName(user.id)` once signed in). When it
+   * differs from the open instance, that instance is closed and replaced.
+   * When omitted, the current instance (or in-flight open) is reused; if
+   * there is none, nothing is opened (zero Local_Store access before the
+   * signed-in user is known, 22.10).
+   */
+  dbName?: string;
 }
 
-/** Closes and forgets the shared instance (e.g. before a full reload after restore). */
+const unavailableRepo = (options: RepositoryOptions) =>
+  createRepository({ mode: "unavailable", reason: "not_supported" }, options);
+
+/**
+ * Opens the Local_Store once and shares the Repo. Idempotent per database
+ * name: later calls get the same instance or promise. On the server it
+ * resolves to an `unavailable` repo without touching IndexedDB and does not
+ * cache it.
+ */
+export function initRepo(options: InitRepoOptions = {}): Promise<Repo> {
+  const { dbName, ...repoOptions } = options;
+  if (typeof window === "undefined") return Promise.resolve(unavailableRepo(repoOptions));
+
+  if (dbName === undefined || dbName === instanceDbName) {
+    if (instance) return Promise.resolve(instance);
+    if (opening) return opening;
+    // No user database chosen yet: don't open anything (and don't cache).
+    if (dbName === undefined) return Promise.resolve(unavailableRepo(repoOptions));
+  } else if (instance || opening) {
+    // Different user: close the previous user's database first.
+    resetRepo();
+  }
+
+  if (dbName === undefined) return Promise.resolve(unavailableRepo(repoOptions));
+  const name = dbName;
+  const gen = generation;
+  instanceDbName = name;
+  const pending = import("./db")
+    .then(({ openDatabase }) => openDatabase(name))
+    .then((open) => {
+      const repo = createRepository(open, repoOptions);
+      if (gen !== generation) {
+        // Reset (sign-out / user switch) while opening: release and report unavailable.
+        repo.close();
+        return unavailableRepo(repoOptions);
+      }
+      setInstance(repo);
+      return repo;
+    })
+    .finally(() => {
+      if (opening === pending) opening = null;
+    });
+  opening = pending;
+  return pending;
+}
+
+/** Name of the open (or opening) Local_Store, or null. */
+export function currentRepoDbName(): string | null {
+  return instanceDbName;
+}
+
+/** Closes and forgets the shared instance (sign-out, user switch, or before a full reload after restore). */
 export function resetRepo(): void {
+  generation++;
   instance?.close();
   opening = null;
+  instanceDbName = null;
   setInstance(null);
 }

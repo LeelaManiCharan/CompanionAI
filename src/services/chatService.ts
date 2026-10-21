@@ -21,6 +21,7 @@ import {
   type ProviderErrorInfo,
 } from "./modelRouter";
 import type { ServiceResult } from "./profileService";
+import { extractReminder } from "./reminderService";
 import { getActiveProfileId, opFor } from "./session";
 
 /** Max stored Message length (19.4, 20.24). */
@@ -132,9 +133,45 @@ export async function createChat(profileId: string, mode: ChatMode, title = ""):
   return ok(chat);
 }
 
+const mainChatInFlight = new Map<string, Promise<ServiceResult<Chat>>>();
+
+/**
+ * The Profile's one ongoing conversation: its most recently updated Chat, or
+ * a new text Chat when it has none. Concurrent callers share one request so
+ * only one Chat is created.
+ */
+export function getOrCreateMainChat(profileId: string): Promise<ServiceResult<Chat>> {
+  const pending = mainChatInFlight.get(profileId);
+  if (pending) return pending;
+  const p = (async (): Promise<ServiceResult<Chat>> => {
+    if (getActiveProfileId() !== profileId) return fail(CHAT_ERRORS.inactive);
+    const r = await repo();
+    if (r.mode !== "ready") return fail(CHAT_ERRORS.unavailable);
+    const chats = await r.listChats(profileId).catch(() => null);
+    if (!chats) return fail(CHAT_ERRORS.createFailed);
+    const latest = [...chats].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+    if (latest) return ok(latest);
+    return createChat(profileId, "text");
+  })().finally(() => mainChatInFlight.delete(profileId));
+  mainChatInFlight.set(profileId, p);
+  return p;
+}
+
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
+
+/** Where a Message came from: typed (text) or spoken in a call (voice + callId). */
+export interface MessageOrigin {
+  channel: "text" | "voice";
+  callId?: string;
+}
+
+const TEXT_ORIGIN: MessageOrigin = { channel: "text" };
+
+/** Replies inherit the channel/call of the user Message they answer. */
+const originOf = (m: Message): MessageOrigin =>
+  m.channel === "voice" ? { channel: "voice", ...(m.callId ? { callId: m.callId } : {}) } : TEXT_ORIGIN;
 
 export interface ReplyError {
   message: string;
@@ -190,6 +227,7 @@ async function storeMessage(
   content: string,
   safetyFlagged: boolean,
   createdAt: string,
+  origin: MessageOrigin = TEXT_ORIGIN,
 ): Promise<StoreOutcome> {
   let missing = false;
   const message: Message = {
@@ -200,6 +238,8 @@ async function storeMessage(
     content: content.slice(0, MESSAGE_CONTENT_MAX),
     createdAt,
     safetyFlagged,
+    channel: origin.channel,
+    ...(origin.callId ? { callId: origin.callId } : {}),
   };
   const res = await r.tx(op, ["messages", "chats"], async (t) => {
     assertOpCurrent(op);
@@ -254,8 +294,24 @@ async function generateReply(
     .messagesByChat(chatId, { before: userMessage.createdAt, limit: 19 })
     .catch(() => [] as Message[]);
 
+  // 24.1, 24.3: schedule a reminder first so the reply can confirm it. Failures are ignored.
+  const lastEarlier = earlier[earlier.length - 1];
+  // Skipped for crisis-flagged Messages so the supportive reply is not delayed (14.4).
+  const reminderSet = flagged
+    ? null
+    : await extractReminder(
+        r,
+        op,
+        userMessage,
+        settings,
+        lastEarlier?.role === "companion" ? lastEarlier.content : null,
+        opts.signal,
+      );
+  if (opts.signal?.aborted) return { ...base, error: { message: CHAT_ERRORS.cancelled, retryable: true } };
+
   const req = buildContext({
     task: "reply",
+    reminderSet,
     profileId: op.profileId,
     botName: settings.botName,
     tone: settings.tone,
@@ -276,7 +332,10 @@ async function generateReply(
     if (isAbort(err)) return { ...base, error: { message: CHAT_ERRORS.cancelled, retryable: true } };
     failure = isProviderError(err)
       ? {
-          message: providerErrorMessage(err, { baseUrl: settings.ollamaBaseUrl || undefined }),
+          message: providerErrorMessage(err, {
+            baseUrl: settings.ollamaBaseUrl || undefined,
+            botName: settings.botName,
+          }),
           retryable: err.info.kind !== "notice_declined",
           providerError: err.info,
         }
@@ -294,6 +353,7 @@ async function generateReply(
       CRISIS_FALLBACK_REPLY,
       false,
       strictlyAfter(userMessage.createdAt),
+      originOf(userMessage),
     );
     if (!stored.ok) return stored.kind === "failed" ? { ...base, error: failure } : { ...base, discarded: true };
     return { ...base, reply: stored.message, error: { ...failure, retryable: false } };
@@ -309,13 +369,14 @@ async function generateReply(
     text.slice(0, MESSAGE_CONTENT_MAX), // 20.24
     false,
     strictlyAfter(userMessage.createdAt),
+    originOf(userMessage),
   );
   if (!stored.ok) {
     if (stored.kind === "failed") return { ...base, error: { message: CHAT_ERRORS.replyFailed, retryable: true } };
     return { ...base, discarded: true };
   }
 
-  onReplyStored(op, chatId, userMessage.id); // fire-and-forget extraction (8.1, 8.5)
+  onReplyStored(op, chatId, userMessage.id, userMessage.content); // fire-and-forget extraction (8.1, 8.5)
   return { ...base, reply: stored.message };
 }
 
@@ -330,6 +391,7 @@ async function storeUser(
   r: Repo,
   chatId: string,
   text: string,
+  origin: MessageOrigin = TEXT_ORIGIN,
 ): Promise<{ ok: true; value: StoredUser } | { ok: false; error: string; flagged: boolean }> {
   const ctx = await contextFor(r, chatId);
   // Scan before anything else so crisis UI can show even if saving fails (14.1, 14.2).
@@ -341,7 +403,7 @@ async function storeUser(
   }
   const { op } = ctx;
 
-  const stored = await storeMessage(r, op, chatId, "user", text, flagged, nowIso());
+  const stored = await storeMessage(r, op, chatId, "user", text, flagged, nowIso(), origin);
   if (flagged) emitCrisis({ profileId: op.profileId, chatId, messageId: stored.ok ? stored.message.id : null });
   if (!stored.ok) {
     const error =
@@ -401,17 +463,22 @@ export const requestReply = retry;
 export async function storeUserMessage(
   chatId: string,
   text: string,
+  origin: MessageOrigin = TEXT_ORIGIN,
 ): Promise<ServiceResult<{ message: Message; flagged: boolean }>> {
   if (text.trim().length === 0) return fail(CHAT_ERRORS.notSaved);
   const r = await repo();
   if (r.mode !== "ready") return fail(CHAT_ERRORS.unavailable);
-  const stored = await storeUser(r, chatId, text.slice(0, MESSAGE_CONTENT_MAX));
+  const stored = await storeUser(r, chatId, text.slice(0, MESSAGE_CONTENT_MAX), origin);
   if (!stored.ok) return fail(stored.error);
   return ok({ message: stored.value.message, flagged: stored.value.flagged });
 }
 
 /** Stores a Companion Message (call greeting, late reply captions). Guarded like replies. */
-export async function storeCompanionMessage(chatId: string, text: string): Promise<ServiceResult<Message>> {
+export async function storeCompanionMessage(
+  chatId: string,
+  text: string,
+  origin: MessageOrigin = TEXT_ORIGIN,
+): Promise<ServiceResult<Message>> {
   if (text.trim().length === 0) return fail(CHAT_ERRORS.emptyReply);
   const r = await repo();
   if (r.mode !== "ready") return fail(CHAT_ERRORS.unavailable);
@@ -421,7 +488,7 @@ export async function storeCompanionMessage(chatId: string, text: string): Promi
   // Keep ordering after the latest Message of the Chat.
   const last = await r.messagesByChat(chatId, { limit: 1 }).catch(() => [] as Message[]);
   const createdAt = last[0] ? strictlyAfter(last[0].createdAt) : nowIso();
-  const stored = await storeMessage(r, ctx.op, chatId, "companion", text, false, createdAt);
+  const stored = await storeMessage(r, ctx.op, chatId, "companion", text, false, createdAt, origin);
   if (!stored.ok) {
     return fail(stored.kind === "missing" ? CHAT_ERRORS.chatMissing : stored.kind === "stale" ? CHAT_ERRORS.inactive : CHAT_ERRORS.notSaved);
   }

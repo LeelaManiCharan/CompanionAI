@@ -9,7 +9,7 @@ const pill =
   focus;
 
 /** White pill with deep-green text: the main action on the dark screen. */
-export const lightPill = `${pill} bg-white text-primary-deep hover:bg-white/90 active:bg-white/80`;
+export const lightPill = `${pill} bg-white text-primary-deep shadow-[0_8px_24px_rgb(0_0_0/0.25)] hover:bg-white/90 active:scale-[0.98] active:bg-white/80`;
 
 /** Outlined pill for secondary actions. */
 export const outlinePill = `${pill} border border-white/30 bg-white/5 text-white hover:bg-white/10 active:bg-white/15`;

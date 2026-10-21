@@ -140,6 +140,12 @@ export function localDate(instant: string, timeZone: string): string {
   return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** Local wall-clock date-time `YYYY-MM-DDTHH:MM` of a UTC instant in `timeZone` (24.1). */
+export function localDateTime(instant: string, timeZone: string): string {
+  const p = wallParts(parseInstant(instant), timeZone);
+  return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}`;
+}
+
 function localHour(ms: number, timeZone: string): number {
   return wallParts(ms, timeZone).hour;
 }

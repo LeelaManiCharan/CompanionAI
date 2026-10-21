@@ -12,6 +12,7 @@ import {
   requestPermissionOnce,
   type NotificationPermissionState,
 } from "@/services/notifications";
+import { isRingtoneEnabled, primeAudio, setRingtoneEnabled } from "@/services/ringtone";
 import { getPreferredTime } from "@/services/scheduler";
 import { saveCheckInOverride, saveNotificationsEnabled } from "@/services/settingsService";
 import { SettingsRow, SettingsSection } from "./SettingsSection";
@@ -144,7 +145,29 @@ export function CheckInsSection({ index }: { index: string }) {
       <SettingsRow>
         <NotificationsToggle />
       </SettingsRow>
+
+      <SettingsRow>
+        <RingtoneToggle />
+      </SettingsRow>
     </SettingsSection>
+  );
+}
+
+/** Ringtone for incoming calls; a per-browser preference (localStorage). */
+function RingtoneToggle() {
+  const [enabled, setEnabled] = useState(() => isRingtoneEnabled());
+  return (
+    <Switch
+      label="Ringtone"
+      description="Play a soft phone ring while a check-in or reminder call is waiting. Applies to this browser."
+      checked={enabled}
+      onCheckedChange={(v) => {
+        setRingtoneEnabled(v);
+        setEnabled(v);
+        // The toggle click is a user gesture, so audio can be unlocked here.
+        if (v) primeAudio();
+      }}
+    />
   );
 }
 

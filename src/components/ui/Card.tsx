@@ -12,7 +12,8 @@ export function Card({ as: Tag = "div", muted, className, ...rest }: CardProps) 
   return (
     <Tag
       className={cn(
-        "rounded-lg border border-border shadow-card",
+        "rounded-2xl border border-border shadow-card transition-[box-shadow,transform,border-color] duration-300",
+        "hover:-translate-y-0.5 hover:shadow-elevated hover:border-primary/20",
         muted ? "bg-bg-subtle" : "bg-bg",
         className,
       )}
@@ -28,10 +29,7 @@ export type CardHeaderProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
 
 export function CardHeader({ actions, className, children, ...rest }: CardHeaderProps) {
   return (
-    <div
-      className={cn("flex items-start justify-between gap-3 border-b border-border px-5 py-4", className)}
-      {...rest}
-    >
+    <div className={cn("flex items-start justify-between gap-3 px-5 pt-5 pb-3", className)} {...rest}>
       <div className="min-w-0 flex-1">{children}</div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>

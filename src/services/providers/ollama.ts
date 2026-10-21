@@ -7,7 +7,7 @@
  * - HTTP 404 whose body mentions "not found" → `model_not_installed`.
  * - Abort via timeout → `timeout`; caller cancellation re-throws the AbortError.
  */
-import type { GenerationRequest } from "@/core/generation";
+import { JSON_TASKS, type GenerationRequest } from "@/core/generation";
 import { abortError, ProviderError, type ModelProvider } from "./types";
 
 export const OLLAMA_HEALTH_TIMEOUT_MS = 2_000;
@@ -43,7 +43,7 @@ export function toOllamaBody(model: string, req: GenerationRequest): OllamaChatB
     ],
     stream: false,
   };
-  if (req.task === "extract_memories") body.format = "json";
+  if (JSON_TASKS.has(req.task)) body.format = "json";
   return body;
 }
 

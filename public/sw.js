@@ -13,7 +13,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const url = typeof data.url === "string" && data.url.startsWith("/") ? data.url : CALL_URL;
+  // Only same-origin call-page paths (check-in or reminder call, Req 24.6).
+  const url = typeof data.url === "string" && /^\/call(?:\?|$)/.test(data.url) ? data.url : CALL_URL;
 
   event.waitUntil(
     (async () => {
@@ -25,7 +26,7 @@ self.addEventListener("notificationclick", (event) => {
         } catch {
           // Focus can fail without user activation; still deliver the message.
         }
-        client.postMessage({ type: "open-call" });
+        client.postMessage({ type: "open-call", url });
         return;
       }
       await self.clients.openWindow(url);

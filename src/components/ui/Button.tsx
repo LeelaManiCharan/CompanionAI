@@ -7,14 +7,14 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "lg";
 
 const base =
-  "inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-md border " +
-  "font-medium tracking-[-0.01em] transition-colors duration-150 " +
+  "inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border " +
+  "font-medium tracking-[-0.01em] transition-all duration-200 active:scale-[0.98] " +
   "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "border-primary bg-primary text-white shadow-card hover:border-primary-hover hover:bg-primary-hover active:bg-primary-deep",
-  secondary: "border-border bg-bg text-text shadow-card hover:bg-bg-subtle active:bg-surface",
+    "border-transparent bg-gradient-brand text-white shadow-glow hover:brightness-[1.06] hover:shadow-elevated active:brightness-95",
+  secondary: "border-border bg-bg text-text shadow-card hover:bg-bg-subtle hover:border-primary/25 active:bg-surface",
   ghost: "border-transparent bg-transparent text-text hover:bg-surface active:bg-surface-2",
   danger: "border-danger bg-danger text-white shadow-card hover:brightness-95 active:brightness-90",
 };

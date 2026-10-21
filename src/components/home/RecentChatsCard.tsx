@@ -13,7 +13,6 @@ import {
   IconChevronLeft,
   IconMessage,
   IconMic,
-  IconPlus,
   Skeleton,
 } from "@/components/ui";
 import { fullDateTime, relativeTime } from "./format";
@@ -27,10 +26,21 @@ export type RecentChatsCardProps = {
   nowMs: number;
 };
 
-function ChatRow({ item, nowMs }: { item: HomeChatItem; nowMs: number }) {
+function ChatRow({
+  item,
+  nowMs,
+  botName,
+  main,
+}: {
+  item: HomeChatItem;
+  nowMs: number;
+  botName: string;
+  /** The ongoing conversation (most recent Chat). */
+  main: boolean;
+}) {
   const { chat, lastMessageAt } = item;
   const voice = chat.mode === "voice";
-  const title = chat.title.trim() || "Untitled chat";
+  const title = chat.title.trim() || `Chat with ${botName}`;
   return (
     <li>
       <Link
@@ -41,15 +51,15 @@ function ChatRow({ item, nowMs }: { item: HomeChatItem; nowMs: number }) {
           aria-hidden="true"
           className={
             voice
-              ? "flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-accent text-primary"
-              : "flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted"
+              ? "flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-white shadow-glow"
+              : "flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted"
           }
         >
           {voice ? <IconMic size={16} /> : <IconMessage size={16} />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-medium tracking-[-0.01em] text-text">{title}</span>
-          <span className="block text-[13px] text-muted">{voice ? "Voice call" : "Text chat"}</span>
+          <span className="block text-[13px] text-muted">{main ? "Continue chat" : voice ? "Older voice call" : "Older chat"}</span>
         </span>
         <time
           dateTime={lastMessageAt}
@@ -75,8 +85,12 @@ export function RecentChatsCard({ botName, items, loading, failed, nowMs }: Rece
     <Card as="section" aria-labelledby="recent-heading" className="flex flex-col">
       <CardHeader
         actions={
-          <ButtonLink href="/chat" variant="ghost" leadingIcon={<IconPlus size={16} />}>
-            New chat
+          <ButtonLink
+            href={list[0] ? `/chat/${encodeURIComponent(list[0].chat.id)}` : "/chat"}
+            variant="ghost"
+            leadingIcon={<IconMessage size={16} />}
+          >
+            Continue chat
           </ButtonLink>
         }
       >
@@ -103,8 +117,8 @@ export function RecentChatsCard({ botName, items, loading, failed, nowMs }: Rece
         </div>
       ) : count > 0 ? (
         <ul className="divide-y divide-border" aria-label="Recent conversations">
-          {list.map((item) => (
-            <ChatRow key={item.chat.id} item={item} nowMs={nowMs} />
+          {list.map((item, i) => (
+            <ChatRow key={item.chat.id} item={item} nowMs={nowMs} botName={botName} main={i === 0} />
           ))}
         </ul>
       ) : (

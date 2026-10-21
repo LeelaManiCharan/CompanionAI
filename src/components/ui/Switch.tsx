@@ -35,9 +35,9 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
         if (!e.defaultPrevented) onCheckedChange(!checked);
       }}
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-150",
+        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border transition-all duration-200",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "border-primary bg-primary" : "border-border bg-surface-2",
+        checked ? "border-transparent bg-gradient-brand shadow-glow" : "border-border bg-surface-2",
         !label && className,
       )}
       {...rest}

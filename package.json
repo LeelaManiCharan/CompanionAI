@@ -15,6 +15,7 @@
     "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
     "geist": "1.8.1",
     "idb": "8.0.4",

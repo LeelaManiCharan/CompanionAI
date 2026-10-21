@@ -78,20 +78,33 @@ const toneStyles: Record<ToastTone, { icon: string; Glyph: typeof IconInfo }> = 
   danger: { icon: "text-danger", Glyph: IconAlert },
 };
 
+/** ms for the exit animation; matches --animate-toast-out in globals.css. */
+const EXIT_MS = 180;
+
 function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void }) {
   const [paused, setPaused] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const remaining = useRef(item.duration);
   const startedAt = useRef(0);
 
+  // Play the fade-out, then actually remove the item from the list.
+  const requestDismiss = useCallback(() => setLeaving(true), []);
+
   useEffect(() => {
-    if (item.duration <= 0 || paused) return;
+    if (!leaving) return;
+    const timer = window.setTimeout(onDismiss, EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving, onDismiss]);
+
+  useEffect(() => {
+    if (item.duration <= 0 || paused || leaving) return;
     startedAt.current = Date.now();
-    const timer = window.setTimeout(onDismiss, remaining.current);
+    const timer = window.setTimeout(requestDismiss, remaining.current);
     return () => {
       window.clearTimeout(timer);
       remaining.current = Math.max(0, remaining.current - (Date.now() - startedAt.current));
     };
-  }, [item.duration, paused, onDismiss]);
+  }, [item.duration, paused, leaving, requestDismiss]);
 
   const { icon, Glyph } = toneStyles[item.tone];
 
@@ -102,8 +115,9 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm animate-toast-in items-start gap-3 rounded-md border bg-bg px-3.5 py-3",
-        "shadow-[0_4px_16px_rgb(17_24_20/0.08)]",
+        "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-bg px-3.5 py-3",
+        "shadow-elevated glass-panel",
+        leaving ? "animate-toast-out" : "animate-toast-in",
         item.tone === "danger" ? "border-danger/30" : "border-border",
       )}
     >
@@ -114,7 +128,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
       </div>
       <button
         type="button"
-        onClick={onDismiss}
+        onClick={requestDismiss}
         aria-label="Dismiss notification"
         className="-m-1 inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted transition-colors hover:bg-surface hover:text-text"
       >

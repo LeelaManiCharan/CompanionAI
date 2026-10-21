@@ -22,7 +22,11 @@ npm run dev                  # http://localhost:3000
    | Name | Required | Value |
    | --- | --- | --- |
    | `GEMINI_API_KEY` | Yes, for the hosted fallback | Free key from [Google AI Studio](https://aistudio.google.com/app/apikey) |
-   | `GEMINI_MODEL` | No | Defaults to `gemini-2.0-flash` |
+   | `GEMINI_MODEL` | No | Defaults to `gemini-flash-latest`. Preferred model for chat replies |
+   | `GEMINI_FALLBACK_MODELS` | No | Comma list tried in order when a model returns 429 (quota) or 404. Defaults to `gemini-flash-lite-latest` |
+   | `GEMINI_LITE_MODEL` | No | Tried first for background tasks (memory/reminder extraction, summaries, connection tests). Defaults to `gemini-flash-lite-latest` |
+
+   Free-tier note: each Gemini model has its own small free quota, and one chat message can trigger a few calls (reply plus background extraction). When a model hits its quota, `/api/generate` skips it for the `retryDelay` Google returns (60 s if none) and uses the next model in the chain. `gemini-flash-lite-latest` has a separate quota from `gemini-flash-latest`, so keeping it as a fallback helps. `gemini-2.5-flash*` ids may return 404 for new API keys.
 
    Never prefix these with `NEXT_PUBLIC_`. That would ship the key to every browser. The key is only read server-side by `/api/generate`.
 3. Redeploy after adding or changing environment variables. Existing deployments don't pick them up.

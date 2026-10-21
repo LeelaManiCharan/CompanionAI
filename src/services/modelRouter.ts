@@ -135,6 +135,25 @@ function raceAbort<T>(p: Promise<T>, signal: AbortSignal | undefined, provider: 
   });
 }
 
+/** Longest Retry-After honored by the automatic reply retry. */
+export const BUSY_RETRY_MAX_S = 8;
+/** Retry delay when the route sends no usable Retry-After. */
+export const BUSY_RETRY_DEFAULT_MS = 3_000;
+
+/** Delay before the one automatic reply retry, or null when no retry applies. */
+function busyRetryDelayMs(err: unknown): number | null {
+  if (!isProviderError(err) || err.info.kind !== "busy") return null;
+  const s = err.info.retryAfterS;
+  if (s !== undefined && s <= BUSY_RETRY_MAX_S) return Math.max(1, s) * 1000;
+  // A local limiter asking for a long wait won't clear in a few seconds.
+  if (err.info.code === "rate_limited_local") return null;
+  return BUSY_RETRY_DEFAULT_MS;
+}
+
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return raceAbort(new Promise<void>((resolve) => setTimeout(resolve, ms)), signal, "gemini");
+}
+
 export class ModelRouter {
   private state: ActiveProviderState = INITIAL_STATE;
   private readonly listeners = new Set<(s: ActiveProviderState) => void>();
@@ -390,7 +409,15 @@ export class ModelRouter {
     await this.ensureNotice(snap, opts.signal, opts.onAcknowledge);
     // Timeout starts after the notice so reading the dialog doesn't count.
     try {
-      return await geminiGenerate(req, withTimeout(opts.signal, REQUEST_TIMEOUT_MS));
+      try {
+        return await geminiGenerate(req, withTimeout(opts.signal, REQUEST_TIMEOUT_MS));
+      } catch (err) {
+        // Replies get one automatic retry when the route reports busy/quota.
+        const delayMs = req.task === "reply" ? busyRetryDelayMs(err) : null;
+        if (delayMs === null) throw err;
+        await sleep(delayMs, opts.signal);
+        return await geminiGenerate(req, withTimeout(opts.signal, REQUEST_TIMEOUT_MS));
+      }
     } catch (err) {
       if (isProviderError(err) && err.info.kind === "unavailable") {
         this.geminiServer = false;
@@ -480,6 +507,14 @@ export interface ErrorMessageContext {
   origin?: string;
   /** Configured Ollama base URL, for the unreachable message. */
   baseUrl?: string;
+  /** Companion name for in-character copy; falls back to "Your companion". */
+  botName?: string;
+}
+
+/** User-facing busy/quota copy (no setup instructions). */
+export function busyMessage(botName?: string): string {
+  const name = botName?.trim() ? botName.trim() : "Your companion";
+  return `${name}'s thinking is a bit overloaded right now. Try again in a minute.`;
 }
 
 export function providerErrorMessage(
@@ -500,8 +535,7 @@ export function providerErrorMessage(
     case "timeout":
       return `${PROVIDER_NAME[info.provider]} did not respond within 60 seconds. Please try again.`;
     case "busy": {
-      const base =
-        "The hosted model is busy or its quota is reached. Try again later or run Ollama locally.";
+      const base = busyMessage(ctx.botName);
       return info.code === "rate_limited_local" && info.retryAfterS !== undefined
         ? `${base} You can retry in ${info.retryAfterS} seconds.`
         : base;
@@ -510,6 +544,8 @@ export function providerErrorMessage(
       return info.reason === "offline"
         ? "You're offline, so the hosted model is unavailable. Reconnect or run Ollama locally."
         : "The hosted model is not configured on this deployment. You can run Ollama locally.";
+    case "unauthorized":
+      return "Session expired, sign in again.";
     case "notice_declined":
       return "A reply needs you to acknowledge the hosted-model privacy notice, or run Ollama locally.";
     case "no_model":

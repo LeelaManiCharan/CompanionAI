@@ -7,21 +7,21 @@ import {
   getServerSchedulerState,
   snooze as snoozeCheckIn,
   subscribeScheduler,
-  type CheckInPrompt,
+  type SchedulerPrompt,
   type ServiceResult,
 } from "./scheduler";
 import type { CheckIn } from "@/core/models";
 
 export interface UseCheckInPrompt {
-  /** The in-app Daily_Check_In prompt to show, or null. */
-  prompt: CheckInPrompt | null;
+  /** The in-app Daily_Check_In or reminder-call prompt to show, or null. */
+  prompt: SchedulerPrompt | null;
   /** Hides the prompt; the check-in stays triggered for today. */
   dismiss: () => void;
   /** Snoozes the prompt's check-in for 30 minutes (once per date). */
   snooze: () => Promise<ServiceResult<CheckIn>>;
 }
 
-/** Subscribes to the Check_In_Scheduler's in-app prompt (12.6, 12.10, 13.5). */
+/** Subscribes to the Check_In_Scheduler's in-app prompt (12.6, 12.10, 13.5, 24.6). */
 export function useCheckInPrompt(): UseCheckInPrompt {
   const { prompt } = useSyncExternalStore(subscribeScheduler, getSchedulerState, getServerSchedulerState);
   const profileId = prompt?.profileId ?? null;

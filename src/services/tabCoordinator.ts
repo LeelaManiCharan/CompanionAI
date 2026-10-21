@@ -8,6 +8,7 @@
  *   broadcast so other tabs can disable call controls.
  * - Data changes / restore: "companion-db" BroadcastChannel carrying ChangeEvents and
  *   "reload-all" notices.
+ * - Every lock and channel name is suffixed with `:${userId}` (22.10).
  */
 import type { ChangeEvent } from "@/data/repository";
 
@@ -15,8 +16,22 @@ const LEADER_LOCK = "companion-leader";
 const CALL_LOCK = "companion-call";
 const TABS_CHANNEL = "companion-tabs";
 const DB_CHANNEL = "companion-db";
+
+/**
+ * Lock and channel names carry the signed-in user id (`companion-db:<id>`, …),
+ * so tabs of different users on one browser never coordinate (22.10).
+ */
+let scope: string | null = null;
+const scoped = (name: string): string => (scope ? `${name}:${scope}` : name);
 const HEARTBEAT_MS = 1000;
 const EXPIRY_MS = 3000;
+/**
+ * Presence window outside heartbeat mode. Background tabs' timers can be
+ * throttled to once a minute, so a peer counts as present this long.
+ */
+const PRESENCE_MS = 65_000;
+/** With no leader after this long and no other tab seen, this tab leads. */
+const LEADER_FALLBACK_MS = 5000;
 
 type TabsMessage =
   | { type: "heartbeat"; tabId: string }
@@ -71,6 +86,7 @@ export const tabId: string = `${Date.now().toString(36).padStart(10, "0")}-${Mat
   .slice(2, 10)}`;
 
 let started = false;
+let startedAtMs = 0;
 let leaderMode: "locks" | "heartbeat" | "solo" | null = null;
 let leader = false;
 let heartbeatReady = false;
@@ -143,8 +159,9 @@ function onTabsMessage(ev: MessageEvent): void {
 }
 
 function getDbChannel(): BroadcastChannel | null {
-  if (dbChannel || !channelSupported()) return dbChannel;
-  dbChannel = openChannel(DB_CHANNEL);
+  // Opened only while started, so the name always includes the user id.
+  if (dbChannel || !started || !channelSupported()) return dbChannel;
+  dbChannel = openChannel(scoped(DB_CHANNEL));
   dbChannel?.addEventListener("message", (ev: MessageEvent) => {
     const msg: unknown = ev.data;
     if (!isObject(msg) || msg.from === tabId) return;
@@ -196,15 +213,25 @@ function startHeartbeatLeader(): void {
   post(tabsChannel, { type: "heartbeat", tabId } satisfies TabsMessage);
 }
 
+/** Releases (or abandons the wait for) the leader lock on stop. */
+let leaderAbort: AbortController | null = null;
+let releaseLeaderLock: (() => void) | null = null;
+
 function startLocksLeader(): void {
   leaderMode = "locks";
+  const abort = new AbortController();
+  leaderAbort = abort;
   navigator.locks
-    .request(LEADER_LOCK, () => {
+    .request(scoped(LEADER_LOCK), { signal: abort.signal }, () => {
+      if (abort.signal.aborted) return undefined;
       setLeader(true);
-      // Never resolves: the lock is held until this tab closes.
-      return new Promise<never>(() => {});
+      // Held until this tab closes or the coordinator stops (sign-out).
+      return new Promise<void>((resolve) => {
+        releaseLeaderLock = resolve;
+      });
     })
     .catch(() => {
+      if (abort.signal.aborted) return;
       // Locks API present but unusable (e.g. insecure/opaque context).
       if (leaderMode === "locks" && !leader) startHeartbeatLeader();
     });
@@ -214,11 +241,22 @@ function startLocksLeader(): void {
 function tick(): void {
   const now = Date.now();
 
+  // Every tab announces itself (also in locks mode) so the fallback below
+  // can tell whether any other tab exists.
+  post(tabsChannel, { type: "heartbeat", tabId } satisfies TabsMessage);
   if (leaderMode === "heartbeat") {
-    post(tabsChannel, { type: "heartbeat", tabId } satisfies TabsMessage);
     for (const [id, seen] of peers) if (now - seen > EXPIRY_MS) peers.delete(id);
     heartbeatReady = true;
     recomputeHeartbeatLeader();
+  } else {
+    for (const [id, seen] of peers) if (now - seen > PRESENCE_MS) peers.delete(id);
+  }
+
+  // Safety net: the leader lock never arrived (e.g. held by a stale module
+  // instance after a hot reload, or a stuck request) and no other tab is
+  // around, so nobody would ring. Lead from this tab.
+  if (!leader && leaderMode === "locks" && now - startedAtMs >= LEADER_FALLBACK_MS && peers.size === 0) {
+    setLeader(true);
   }
 
   if (localCall) post(tabsChannel, { type: "call-state", tabId, active: true } satisfies TabsMessage);
@@ -229,7 +267,7 @@ function tick(): void {
       navigator.locks
         .query()
         .then((snapshot) => {
-          const held = (snapshot.held ?? []).some((l) => l.name === CALL_LOCK);
+          const held = (snapshot.held ?? []).some((l) => l.name === scoped(CALL_LOCK));
           if (!held && !localCall) {
             callHolders.clear();
             recomputeCallElsewhere();
@@ -248,12 +286,20 @@ function onPageHide(): void {
   post(tabsChannel, { type: "bye", tabId } satisfies TabsMessage);
 }
 
-/** Starts coordination. Idempotent; no-op during SSR. */
-export function startTabCoordinator(): void {
-  if (started || !isBrowser()) return;
+/**
+ * Starts coordination for `userId` (lock/channel names get `:${userId}`).
+ * Idempotent for the same user; a different user restarts it. No-op during SSR.
+ */
+export function startTabCoordinator(userId?: string): void {
+  if (!isBrowser()) return;
+  const nextScope = userId ?? null;
+  if (started && nextScope === scope) return;
+  if (started) stopTabCoordinator();
+  scope = nextScope;
   started = true;
+  startedAtMs = Date.now();
 
-  tabsChannel = openChannel(TABS_CHANNEL);
+  tabsChannel = openChannel(scoped(TABS_CHANNEL));
   tabsChannel?.addEventListener("message", onTabsMessage);
   getDbChannel();
 
@@ -265,6 +311,7 @@ export function startTabCoordinator(): void {
 
   // Learn about calls already in progress in other tabs.
   post(tabsChannel, { type: "call-query", tabId } satisfies TabsMessage);
+  post(tabsChannel, { type: "heartbeat", tabId } satisfies TabsMessage);
 }
 
 /** True once this tab has been elected leader (20.1). */
@@ -321,7 +368,7 @@ export function acquireCallLock(): Promise<(() => void) | null> {
 
   return new Promise((resolve) => {
     navigator.locks
-      .request(CALL_LOCK, { ifAvailable: true }, (lock) => {
+      .request(scoped(CALL_LOCK), { ifAvailable: true }, (lock) => {
         if (!lock) {
           resolve(null);
           return undefined;
@@ -370,7 +417,10 @@ export function coordinatorMode(): typeof leaderMode {
   return leaderMode;
 }
 
-/** Stops timers and closes channels (HMR / teardown). Listeners are kept. */
+/**
+ * Stops timers, releases the leader lock, and closes channels (HMR,
+ * sign-out, user switch). Listeners are kept and reattach on the next start.
+ */
 export function stopTabCoordinator(): void {
   if (!started) return;
   started = false;
@@ -378,6 +428,10 @@ export function stopTabCoordinator(): void {
   timer = null;
   if (isBrowser()) window.removeEventListener("pagehide", onPageHide);
   onPageHide();
+  leaderAbort?.abort();
+  leaderAbort = null;
+  releaseLeaderLock?.();
+  releaseLeaderLock = null;
   tabsChannel?.close();
   tabsChannel = null;
   dbChannel?.close();
@@ -385,4 +439,23 @@ export function stopTabCoordinator(): void {
   leaderMode = null;
   heartbeatReady = false;
   peers.clear();
+  callHolders.clear();
+  recomputeCallElsewhere();
+  setLeader(false);
+  scope = null;
+}
+
+// Dev hot reload re-executes this module. Without this, the replaced
+// instance keeps the leader lock (and its timers) forever, so the new
+// instance never becomes leader and nothing rings. A globalThis slot (not
+// `module.hot`, which breaks webpack's ESM handling) lets the new instance
+// stop the previous one.
+if (isBrowser()) {
+  const g = globalThis as { __companionTabCoordinator?: { stop(): void } };
+  try {
+    g.__companionTabCoordinator?.stop();
+  } catch {
+    // A broken previous instance must not block this one.
+  }
+  g.__companionTabCoordinator = { stop: stopTabCoordinator };
 }

@@ -23,6 +23,8 @@ import {
   Spinner,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useLiveQuery } from "@/data/useLiveQuery";
+import { getReminder } from "@/services/reminderService";
 import { useCallElsewhere } from "@/services/useTabState";
 import { useCallController, type CallControllerApi } from "@/services/voice/useCallController";
 
@@ -91,9 +93,17 @@ function TopBar({ live }: { live: boolean }) {
 
 function Screen({ children, live = false }: { children: ReactNode; live?: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-primary-deep text-white selection:bg-white/25">
-      <TopBar live={live} />
-      {children}
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-primary-deep text-white selection:bg-white/25">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-brand opacity-30 animate-gradient-pan"
+        style={{ mixBlendMode: "soft-light" }}
+      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgb(45_212_191/0.18),transparent)]" />
+      <div className="relative z-10 flex flex-1 flex-col">
+        <TopBar live={live} />
+        {children}
+      </div>
     </div>
   );
 }
@@ -169,23 +179,27 @@ function PreCallScreen({
   call,
   botName,
   fromCheckIn,
+  reminderText,
   callElsewhere,
   canWrite,
 }: {
   call: CallControllerApi;
   botName: string;
   fromCheckIn: boolean;
+  /** Text of the Reminder this call answers (24.7). */
+  reminderText: string | null;
   callElsewhere: boolean;
   canWrite: boolean;
 }) {
   const startRef = useRef<HTMLButtonElement>(null);
   const busy = callElsewhere || call.blockedElsewhere;
   const disabled = busy || !canWrite || call.supported === null || call.starting;
+  const answering = fromCheckIn || reminderText !== null;
 
-  // Coming from a check-in notification: focus the one tap needed to start.
+  // Coming from a check-in or reminder notification: focus the one tap needed to start.
   useEffect(() => {
-    if (fromCheckIn && !disabled) startRef.current?.focus();
-  }, [fromCheckIn, disabled]);
+    if (answering && !disabled) startRef.current?.focus();
+  }, [answering, disabled]);
 
   const waitingForMic = call.started && call.phase === "requestingMic";
 
@@ -195,11 +209,13 @@ function PreCallScreen({
         <CallAvatar botName={botName} activity={call.starting ? "listening" : "idle"} />
         <div className="max-w-md">
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-white/60">
-            {fromCheckIn ? "Daily check-in" : "Voice call"}
+            {reminderText !== null ? "Reminder call" : fromCheckIn ? "Daily check-in" : "Voice call"}
           </p>
           <h1 className="mt-2 text-[32px] leading-tight tracking-[-0.03em] sm:text-[40px]">{botName}</h1>
           <p className="mt-2 text-[15px] text-white/75">
-            {fromCheckIn
+            {reminderText !== null
+              ? `${botName} is calling with your reminder: ${reminderText}. Tap below to answer.`
+              : fromCheckIn
               ? `It's time for your check-in. Tap below and ${botName} will say hello.`
               : `Have a quick voice chat with ${botName}. Tap below to start.`}
           </p>
@@ -392,7 +408,16 @@ function CallPageInner() {
   const callElsewhere = useCallElsewhere();
   const params = useSearchParams();
   const fromCheckIn = params.get("from") === "checkin";
+  const reminderId = params.get("reminder");
   const botName = settings.botName;
+
+  // The Reminder this call answers (24.7); its text drives the greeting.
+  const reminderQuery = useLiveQuery(
+    async () => (reminderId ? getReminder(reminderId) : null),
+    ["reminders"],
+    [reminderId, profile.id],
+  );
+  const reminder = reminderQuery.data ? { id: reminderQuery.data.id, text: reminderQuery.data.text } : null;
 
   const call = useCallController({
     profileId: profile.id,
@@ -401,6 +426,7 @@ function CallPageInner() {
     tone: settings.tone,
     showCrisis,
     checkStorage,
+    reminder,
   });
 
   const chatLink = (
@@ -518,6 +544,7 @@ function CallPageInner() {
       call={call}
       botName={botName}
       fromCheckIn={fromCheckIn}
+      reminderText={reminder?.text ?? null}
       callElsewhere={callElsewhere}
       canWrite={canWrite}
     />
@@ -526,7 +553,7 @@ function CallPageInner() {
 
 export default function CallPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-primary-deep" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-gradient-brand" />}>
       <CallPageInner />
     </Suspense>
   );

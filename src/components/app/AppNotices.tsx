@@ -9,6 +9,12 @@ import {
   getServerActivityTrackerState,
   subscribeActivityTracker,
 } from "@/services/activityTracker";
+import {
+  dismissSyncFailed,
+  getServerSyncFailed,
+  getSyncFailed,
+  subscribeSyncFailed,
+} from "@/services/preferencesSync";
 import { cn } from "@/lib/cn";
 import { useOptionalApp } from "./appContext";
 
@@ -35,7 +41,8 @@ export function RepoModeAlert({ mode, className }: { mode: RepoMode; className?:
 
 /**
  * App-level notices shown under the top bar: storage mode, persistence and
- * quota warnings (20.19, 20.20), and activity write failures (11.8).
+ * quota warnings (20.19, 20.20), activity write failures (11.8), and
+ * Preferences_Sync failures (22.13).
  */
 export function AppNotices({ className }: { className?: string }) {
   const app = useOptionalApp();
@@ -44,6 +51,7 @@ export function AppNotices({ className }: { className?: string }) {
     getActivityTrackerState,
     getServerActivityTrackerState,
   );
+  const prefsSyncFailed = useSyncExternalStore(subscribeSyncFailed, getSyncFailed, getServerSyncFailed);
   if (!app) return null;
   const { repoMode, storage } = app;
 
@@ -69,6 +77,12 @@ export function AppNotices({ className }: { className?: string }) {
     activityError ? (
       <InlineAlert key="activity" tone="danger" title="Activity update failed" onDismiss={clearActivityError}>
         {activityError}
+      </InlineAlert>
+    ) : null,
+    prefsSyncFailed ? (
+      <InlineAlert key="prefs-sync" tone="info" title="Preferences not synced" onDismiss={dismissSyncFailed}>
+        Your change is saved on this device but couldn&apos;t be synced to your account. It will sync on your next
+        change or sign-in.
       </InlineAlert>
     ) : null,
   ].filter(Boolean);

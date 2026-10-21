@@ -12,13 +12,15 @@
  *
  * Browser-only; importing during SSR is safe and `startScheduler()` is a no-op there.
  */
-import type { CheckIn } from "@/core/models";
+import type { CheckIn, Reminder } from "@/core/models";
+import { REMINDER_STALE_MS } from "@/core/reminders";
 import { canSnooze, computePreferredTime, evaluateSchedule, localDate, snoozeUntil, type ScheduleAction } from "@/core/schedule";
 import { getRepo, initRepo, subscribeRepo, type ChangeEvent, type Repo } from "@/data/repository";
 import { currentTimeZone } from "./activityTracker";
-import { showCheckIn } from "./notifications";
+import { showCheckIn, showReminder } from "./notifications";
 import { getActiveProfileId, opFor, subscribeSession } from "./session";
 import { isLeader, onReloadAll, subscribeLeader } from "./tabCoordinator";
+import { startRingtone, stopRingtone } from "./ringtone";
 import type { ServiceResult } from "./profileService";
 
 export type { ServiceResult };
@@ -29,6 +31,14 @@ export const RESUME_JUMP_MS = 45_000;
 /** Evaluations within this window after start count as "app opening" (12.10). */
 const OPEN_WINDOW_MS = 60_000;
 const NOTIFICATION_BODY = "Got a minute to check in? I'd love to hear how your day is going.";
+/** A reminder fired (by any tab) this recently still shows its banner here. */
+const FIRED_SHOW_MS = 10 * 60_000;
+/** An evaluation stuck longer than this no longer blocks new ones. */
+const EVALUATION_STUCK_MS = 30_000;
+/** Precise reminder timers fire this long after `dueAt` so `dueAt <= now` holds. */
+const REMINDER_TIMER_SLACK_MS = 250;
+/** Upper bound for one reminder timer; it re-arms after every evaluation. */
+const REMINDER_TIMER_MAX_MS = 6 * 3_600_000;
 
 export const SCHEDULER_ERRORS = {
   noProfile: "No Profile is selected.",
@@ -38,6 +48,7 @@ export const SCHEDULER_ERRORS = {
 } as const;
 
 export interface CheckInPrompt {
+  kind: "checkin";
   profileId: string;
   /** Local calendar date of the Daily_Check_In (YYYY-MM-DD). */
   date: string;
@@ -46,8 +57,19 @@ export interface CheckInPrompt {
   canSnooze: boolean;
 }
 
+/** A fired Reminder "calling" the user (24.6). */
+export interface ReminderPrompt {
+  kind: "reminder";
+  profileId: string;
+  botName: string;
+  reminderId: string;
+  text: string;
+}
+
+export type SchedulerPrompt = CheckInPrompt | ReminderPrompt;
+
 export interface SchedulerState {
-  prompt: CheckInPrompt | null;
+  prompt: SchedulerPrompt | null;
 }
 
 const isBrowser = (): boolean => typeof window !== "undefined" && typeof document !== "undefined";
@@ -74,16 +96,29 @@ let lastDate: string | null = null;
 let lastOffset: number | null = null;
 let lastTz: string | null = null;
 let evaluating = false;
+let evaluatingSinceMs = 0;
 let rerun = false;
 let lastProfileId: string | null = null;
 let detachRepo: (() => void) | null = null;
+let reminderTimer: ReturnType<typeof setTimeout> | null = null;
+let armSeq = 0;
+/** Reminder ids whose banner was answered/dismissed in this tab. */
+const handledReminders = new Set<string>();
 const cleanups: Array<() => void> = [];
 
 let state: SchedulerState = Object.freeze({ prompt: null });
 const SERVER_STATE: SchedulerState = Object.freeze({ prompt: null });
 const listeners = new Set<() => void>();
 
-function setPrompt(prompt: CheckInPrompt | null): void {
+/**
+ * Sets the in-app prompt. `ring` starts the ringtone (leader tab, fresh
+ * trigger only); clearing the prompt or switching Profile stops it.
+ */
+function setPrompt(prompt: SchedulerPrompt | null, ring = false): void {
+  // An evaluation still in flight after stop (sign-out) must not show anything.
+  if (prompt && !started) return;
+  if (!prompt || (state.prompt && state.prompt.profileId !== prompt.profileId)) stopRingtone();
+  if (prompt && ring) startRingtone();
   if (prompt === state.prompt) return;
   state = Object.freeze({ prompt });
   for (const l of [...listeners]) {
@@ -149,28 +184,89 @@ async function persistAction(
   return res.ok ? res.value : null;
 }
 
+/**
+ * Rings due Reminders of the Active_Profile (24.5, 24.6). Each status change
+ * is persisted before the prompt/notification, so a reload cannot ring twice;
+ * reminders due more than 6 h ago are closed silently.
+ */
+async function fireReminders(r: Repo, profileId: string, botName: string, notify: boolean): Promise<void> {
+  const nowMs = Date.now();
+  const due = (await r.remindersByProfile(profileId)).filter(
+    (x) => x.status === "pending" && Date.parse(x.dueAt) <= nowMs,
+  );
+  for (const rem of due) {
+    const stale = nowMs - Date.parse(rem.dueAt) > REMINDER_STALE_MS;
+    const now = new Date(nowMs).toISOString();
+    const res = await r.tx(opFor(profileId), ["reminders"], async (t) => {
+      const cur = await t.get("reminders", rem.id);
+      // Another tab (a previous leader) may have handled it already.
+      if (!cur || cur.status !== "pending") return null;
+      const next: Reminder = stale ? { ...cur, status: "done" } : { ...cur, status: "fired", firedAt: now };
+      await t.put("reminders", next);
+      return next;
+    });
+    const stored = res.ok ? res.value : null;
+    if (!stored || stale) continue;
+    if (getActiveProfileId() !== profileId) return;
+
+    // Persisted as fired: show and ring here even if leadership just moved,
+    // so the ring is never lost between the write and the prompt.
+    setPrompt({ kind: "reminder", profileId, botName, reminderId: stored.id, text: stored.text }, true);
+    if (notify) {
+      void showReminder({ reminderId: stored.id, botName, text: stored.text }).catch(() => false);
+    }
+  }
+}
+
+/**
+ * Shows the banner for a reminder that is ringing (status "fired", fired in
+ * the last few minutes) but has no prompt in this tab: a non-leader tab, or
+ * the leader after a reload. Never rings; only the firing tab does.
+ */
+async function showFiredReminder(r: Repo, profileId: string, botName: string): Promise<void> {
+  if (state.prompt) return;
+  const nowMs = Date.now();
+  const ringingNow = (await r.remindersByProfile(profileId)).filter(
+    (x) =>
+      x.status === "fired" &&
+      x.firedAt !== null &&
+      nowMs - Date.parse(x.firedAt) <= FIRED_SHOW_MS &&
+      !handledReminders.has(x.id),
+  );
+  const latest = ringingNow.at(-1);
+  if (!latest || state.prompt || getActiveProfileId() !== profileId) return;
+  setPrompt({ kind: "reminder", profileId, botName, reminderId: latest.id, text: latest.text });
+}
+
 async function evaluateOnce(): Promise<void> {
-  if (!isLeader()) return;
   const profileId = getActiveProfileId();
   if (!profileId) return;
   const r = await repo();
   if (!r || r.mode !== "ready") return;
 
+  // Settings alone are enough for reminders; read them first so a failing
+  // activity/check-in read can never block a reminder from ringing.
+  const settings = await r.getSettings(profileId);
+  if (!settings || getActiveProfileId() !== profileId) return;
+
+  if (isLeader()) {
+    // A failed reminder read/write must not block the check-in; it is retried next tick.
+    await fireReminders(r, profileId, settings.botName, settings.notificationsEnabled).catch(() => undefined);
+  }
+  await showFiredReminder(r, profileId, settings.botName).catch(() => undefined);
+  if (!isLeader() || getActiveProfileId() !== profileId) return;
+
   const timeZone = currentTimeZone();
   const now = nowIso();
   const date = localDate(now, timeZone);
-
-  const [settings, logs, record] = await Promise.all([
-    r.getSettings(profileId),
-    r.activityByProfile(profileId),
-    r.getCheckIn(profileId, date),
-  ]);
-  if (!settings || getActiveProfileId() !== profileId) return;
+  const [logs, record] = await Promise.all([r.activityByProfile(profileId), r.getCheckIn(profileId, date)]);
+  if (!isLeader() || getActiveProfileId() !== profileId) return;
   const today = record ?? null;
 
   // Completion (or a record for another date) cancels any shown prompt (12.9, 20.15).
   const p = state.prompt;
-  if (p && (p.profileId !== profileId || p.date !== date || today?.completedAt)) setPrompt(null);
+  if (p && p.profileId !== profileId) setPrompt(null);
+  else if (p?.kind === "checkin" && (p.date !== date || today?.completedAt)) setPrompt(null);
 
   const preferredTime = computePreferredTime(
     logs,
@@ -189,7 +285,14 @@ async function evaluateOnce(): Promise<void> {
   if (!stored || !isLeader() || getActiveProfileId() !== profileId) return;
 
   const botName = settings.botName;
-  setPrompt({ profileId, date, botName, canSnooze: canSnooze(stored) });
+  // A ringing reminder keeps the banner; the check-in notification still shows.
+  // A due trigger or snooze reminder rings; a missed check-in shown on opening doesn't.
+  if (state.prompt?.kind !== "reminder") {
+    setPrompt(
+      { kind: "checkin", profileId, date, botName, canSnooze: canSnooze(stored) },
+      action !== "prompt_on_open",
+    );
+  }
 
   if (action !== "prompt_on_open" && settings.notificationsEnabled) {
     void showCheckIn({ profileId, date, botName, body: NOTIFICATION_BODY }).catch(() => false);
@@ -198,11 +301,15 @@ async function evaluateOnce(): Promise<void> {
 
 /** Runs an evaluation, coalescing concurrent requests into one follow-up run. */
 async function evaluate(): Promise<void> {
-  if (evaluating) {
+  if (!started) return;
+  // A hung IndexedDB request must not wedge the scheduler forever.
+  if (evaluating && Date.now() - evaluatingSinceMs < EVALUATION_STUCK_MS) {
     rerun = true;
     return;
   }
   evaluating = true;
+  const since = Date.now();
+  evaluatingSinceMs = since;
   try {
     do {
       rerun = false;
@@ -211,10 +318,53 @@ async function evaluate(): Promise<void> {
       } catch {
         // A failed read/write is retried on the next tick.
       }
-    } while (rerun);
+    } while (rerun && started);
   } finally {
-    evaluating = false;
+    if (evaluatingSinceMs === since) evaluating = false;
   }
+  void armReminderTimer();
+}
+
+function clearReminderTimer(): void {
+  if (reminderTimer) clearTimeout(reminderTimer);
+  reminderTimer = null;
+}
+
+/**
+ * Arms a one-shot timer for the earliest pending Reminder of the
+ * Active_Profile, so it rings on time instead of up to one tick late (24.5).
+ * Re-armed after every evaluation, on reminder changes and Profile switches.
+ */
+async function armReminderTimer(): Promise<void> {
+  const seq = ++armSeq;
+  const profileId = getActiveProfileId();
+  const r = getRepo();
+  // Only the leader rings; other tabs learn about it through change events.
+  if (!started || !isLeader() || !profileId || !r || r.mode !== "ready") {
+    clearReminderTimer();
+    return;
+  }
+  let reminders: Reminder[];
+  try {
+    reminders = await r.remindersByProfile(profileId);
+  } catch {
+    return;
+  }
+  if (seq !== armSeq || !started) return;
+  clearReminderTimer();
+  let nextMs = Infinity;
+  for (const x of reminders) {
+    const due = Date.parse(x.dueAt);
+    if (x.status === "pending" && Number.isFinite(due) && due < nextMs) nextMs = due;
+  }
+  // Already due but still pending: the evaluation that just ran failed to
+  // fire it, so the 15 s tick retries (no tight retry loop).
+  if (nextMs === Infinity || nextMs <= Date.now()) return;
+  const delay = Math.min(nextMs - Date.now() + REMINDER_TIMER_SLACK_MS, REMINDER_TIMER_MAX_MS);
+  reminderTimer = setTimeout(() => {
+    reminderTimer = null;
+    void evaluate();
+  }, delay);
 }
 
 /** Compares date / offset / zone with the previous tick and detects resume (20.11, 20.14). */
@@ -232,7 +382,7 @@ function tick(): void {
   lastTz = tz;
 
   // A prompt for an earlier date is stale after a date change or resume (20.15).
-  if ((changed || resumed) && state.prompt && state.prompt.date !== date) setPrompt(null);
+  if ((changed || resumed) && state.prompt?.kind === "checkin" && state.prompt.date !== date) setPrompt(null);
   void evaluate();
 }
 
@@ -242,7 +392,7 @@ function onVisibilityChange(): void {
 
 function onChange(event: ChangeEvent): void {
   if (event.profileId !== getActiveProfileId()) return;
-  if (event.stores.some((s) => s === "checkIns" || s === "settings" || s === "activityLogs")) {
+  if (event.stores.some((s) => s === "checkIns" || s === "settings" || s === "activityLogs" || s === "reminders")) {
     // Re-evaluates the preferred time after new sessions (12.2) and clears
     // the prompt when the check-in is completed (12.9).
     void refreshPrompt().then(() => evaluate());
@@ -255,6 +405,17 @@ async function refreshPrompt(): Promise<void> {
   if (!p) return;
   const r = await repo();
   if (!r) return;
+  if (p.kind === "reminder") {
+    // Answered, cancelled, or deleted elsewhere: stop ringing (24.6, 24.7).
+    try {
+      const all = await r.remindersByProfile(p.profileId);
+      if (state.prompt !== p) return;
+      if (all.find((x) => x.id === p.reminderId)?.status !== "fired") setPrompt(null);
+    } catch {
+      // ignore; the next change re-checks
+    }
+    return;
+  }
   try {
     const rec = await r.getCheckIn(p.profileId, p.date);
     if (state.prompt !== p) return;
@@ -271,6 +432,8 @@ function attachRepo(): void {
   detachRepo = null;
   const r = getRepo();
   if (r) detachRepo = r.onChange(onChange);
+  // A (re)opened Local_Store: evaluate against it right away.
+  if (started && r) void evaluate();
 }
 
 function onSessionChange(): void {
@@ -317,7 +480,34 @@ export function stopScheduler(): void {
   for (const c of cleanups.splice(0)) c();
   detachRepo?.();
   detachRepo = null;
+  clearReminderTimer();
+  armSeq++;
+  // Reset so a later start (next sign-in, hot reload) begins fresh.
   lastTickMs = null;
+  lastDate = null;
+  lastOffset = null;
+  lastTz = null;
+  evaluatedOnce = false;
+  evaluating = false;
+  rerun = false;
+  lastProfileId = null;
+  handledReminders.clear();
+  setPrompt(null);
+}
+
+// Dev hot reload re-executes this module. Without this, the replaced
+// instance keeps ticking with its own prompt state that no component reads,
+// so a reminder is marked fired but never shown. A globalThis slot (not
+// `module.hot`, which breaks webpack's ESM handling) lets the new instance
+// stop the previous one.
+if (isBrowser()) {
+  const g = globalThis as { __companionScheduler?: { stop(): void } };
+  try {
+    g.__companionScheduler?.stop();
+  } catch {
+    // A broken previous instance must not block this one.
+  }
+  g.__companionScheduler = { stop: stopScheduler };
 }
 
 // ---------------------------------------------------------------------------
@@ -350,12 +540,14 @@ export async function snooze(profileId: string | null = getActiveProfileId()): P
   if (!res.ok || !res.value) return { ok: false, error: SCHEDULER_ERRORS.notSaved };
 
   const p = state.prompt;
-  if (p && p.profileId === profileId) setPrompt(null);
+  if (p?.kind === "checkin" && p.profileId === profileId) setPrompt(null);
   return { ok: true, value: res.value };
 }
 
 /** Hides the in-app prompt. The check-in stays triggered for today (12.8). */
 export function dismissPrompt(): void {
+  const p = state.prompt;
+  if (p?.kind === "reminder") handledReminders.add(p.reminderId);
   setPrompt(null);
 }
 

@@ -3,6 +3,7 @@ import { handleGenerate, MAX_BODY_BYTES, type GenerateDeps } from "@/server/hand
 import { createRateLimiter } from "@/server/rateLimiter";
 import * as generateRoute from "@/app/api/generate/route";
 import * as statusRoute from "@/app/api/provider-status/route";
+import { handleProviderStatus } from "@/server/providerStatus";
 
 const KEY = "AIzaSy-TEST-SECRET-KEY-123456";
 const URL_ = "http://localhost/api/generate";
@@ -17,12 +18,15 @@ function okFetch(text = "hello"): typeof fetch {
   ) as unknown as typeof fetch;
 }
 
+const fakeUser = async () => ({ ok: true as const, user: { id: "test-user" } });
+
 function deps(over: Partial<GenerateDeps> = {}): GenerateDeps {
   return {
     env: { GEMINI_API_KEY: KEY },
     fetch: okFetch(),
     now: () => 0,
     limiter: createRateLimiter(),
+    requireUser: fakeUser,
     ...over,
   };
 }
@@ -190,16 +194,17 @@ describe("route files", () => {
   });
 
   it("provider-status reports availability and model without the key", async () => {
-    vi.stubEnv("GEMINI_API_KEY", KEY);
-    vi.stubEnv("GEMINI_MODEL", "");
-    const res = statusRoute.GET();
+    const res = await handleProviderStatus({
+      env: { GEMINI_API_KEY: KEY, GEMINI_MODEL: "" },
+      requireUser: fakeUser,
+    });
     const text = await res.text();
-    expect(JSON.parse(text)).toEqual({ geminiAvailable: true, model: "gemini-2.0-flash" });
+    expect(JSON.parse(text)).toEqual({ geminiAvailable: true, model: "gemini-flash-latest" });
     expect(text).not.toContain(KEY);
     expect(res.headers.get("cache-control")).toBe("no-store");
 
-    vi.stubEnv("GEMINI_API_KEY", "");
-    expect(await statusRoute.GET().json()).toMatchObject({ geminiAvailable: false });
+    const off = await handleProviderStatus({ env: { GEMINI_API_KEY: "" }, requireUser: fakeUser });
+    expect(await off.json()).toMatchObject({ geminiAvailable: false });
 
     const r405 = statusRoute.POST();
     expect(r405.status).toBe(405);

@@ -57,9 +57,11 @@ function titleFor(error: ReplyError, saved: boolean): string {
     case "timeout":
       return info.provider === "ollama" ? "Ollama didn't respond in time" : "Gemini didn't respond in time";
     case "busy":
-      return "The hosted model is busy";
+      return "Taking a short breather";
     case "unavailable":
       return info.reason === "offline" ? "You're offline" : "The hosted model isn't available";
+    case "unauthorized":
+      return "Session expired";
     case "notice_declined":
       return "A reply needs your OK";
     case "no_model":
@@ -87,8 +89,13 @@ export function ReplyErrorAlert({ error, saved, onRetry, retrying = false, onDis
   const info = error.providerError;
   const showOrigins = info?.kind === "unreachable" || info?.kind === "no_model";
   const pullModel = info?.kind === "model_not_installed" ? info.model : null;
+  const loginLink = info?.kind === "unauthorized";
   const settingsLink =
-    info !== undefined && info.kind !== "timeout" && info.kind !== "upstream" && info.kind !== "busy";
+    info !== undefined &&
+    info.kind !== "timeout" &&
+    info.kind !== "upstream" &&
+    info.kind !== "busy" &&
+    info.kind !== "unauthorized";
 
   return (
     <InlineAlert
@@ -96,8 +103,13 @@ export function ReplyErrorAlert({ error, saved, onRetry, retrying = false, onDis
       title={titleFor(error, saved)}
       onDismiss={onDismiss}
       actions={
-        onRetry || settingsLink ? (
+        onRetry || settingsLink || loginLink ? (
           <>
+            {loginLink ? (
+              <ButtonLink href="/login" size="sm" variant="secondary">
+                Sign in again
+              </ButtonLink>
+            ) : null}
             {onRetry ? (
               <Button size="sm" variant="secondary" onClick={onRetry} loading={retrying}>
                 Retry

@@ -35,7 +35,24 @@ export const RULES_TEXT = [
   "- If asked whether you are human, a real person, a therapist, or a medical professional, say clearly that you are an AI and not a human or a therapist.",
   "- Encourage the user's real-world relationships and activities. Never present yourself as a replacement for the people in their life.",
   "- Keep replies short and warm, like a friend checking in.",
+  "- You can schedule reminders and check-in calls: when the user asks you to remind them or call them at a time, the app rings them at that time while the app is open. Never say you can't make calls or set reminders.",
+  "- If a reminder or call request has no clear time, ask what time they'd like.",
 ].join("\n");
+
+/** Info about a reminder scheduled from the latest user Message (24.3). */
+export interface ReminderSet {
+  text: string;
+  /** Human-readable local due time, e.g. "today at 19:32". */
+  dueLocal: string;
+}
+
+/** System section telling the companion a reminder was scheduled (24.3). */
+export const reminderInstruction = (r: ReminderSet): string =>
+  [
+    "Reminder:",
+    `A reminder was scheduled: "${r.text}" ${r.dueLocal}. You will call the user then.`,
+    "Confirm it warmly in one short sentence, then continue the conversation naturally.",
+  ].join("\n");
 
 /** Added when the Safety_Monitor flags the latest user Message (14.4). */
 export const SAFETY_INSTRUCTION = [
@@ -58,6 +75,8 @@ export interface ContextInput {
   latestUserText: string;
   safetyFlagged: boolean;
   provider: ProviderId;
+  /** A reminder scheduled from the latest user Message, if any (24.3). */
+  reminderSet?: ReminderSet | null;
 }
 
 const ms = (t: string): number => Date.parse(t);
@@ -108,9 +127,11 @@ export function buildSystem(
   summary: string | null,
   memories: readonly Memory[],
   safetyFlagged: boolean,
+  reminderSet: ReminderSet | null = null,
 ): string {
   const sections = [personaText(botName, tone), RULES_TEXT];
   if (safetyFlagged) sections.push(SAFETY_INSTRUCTION);
+  if (reminderSet) sections.push(reminderInstruction(reminderSet));
   const trimmedSummary = summary?.trim() ?? "";
   if (trimmedSummary.length > 0) sections.push(`${SUMMARY_HEADING}\n${trimmedSummary}`);
   if (memories.length > 0) sections.push(`${MEMORIES_HEADING}\n${memories.map(memoryLine).join("\n")}`);
@@ -130,7 +151,14 @@ export function buildContext(input: ContextInput): GenerationRequest {
 
   const req: GenerationRequest = {
     task: input.task,
-    system: buildSystem(input.botName, input.tone, input.summary, ranked, input.safetyFlagged),
+    system: buildSystem(
+      input.botName,
+      input.tone,
+      input.summary,
+      ranked,
+      input.safetyFlagged,
+      input.reminderSet ?? null,
+    ),
     messages: recent.map((m) => ({ role: m.role, content: m.content })),
   };
   return input.provider === "gemini" ? trimToByteBudget(req, MAX_REQUEST_BYTES) : req;

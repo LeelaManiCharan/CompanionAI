@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cn } from "@/lib/cn";
 import { IconButton } from "./IconButton";
 import { IconX } from "./icons";
@@ -32,6 +32,9 @@ const widths = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-xl" } as const;
  * is contained), Escape is routed through onClose, and focus returns to the
  * element that was focused before opening.
  */
+/** ms for the panel's exit animation before the native <dialog> actually closes. */
+const CLOSE_MS = 140;
+
 export function Dialog({
   open,
   onClose,
@@ -50,6 +53,7 @@ export function Dialog({
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const openRef = useRef(open);
   const onCloseRef = useRef(onClose);
+  const [closing, setClosing] = useState(false);
   const titleId = useId();
   const descId = useId();
 
@@ -61,12 +65,21 @@ export function Dialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) {
-      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      dialog.showModal();
-      initialFocusRef?.current?.focus();
-    } else if (!open && dialog.open) {
-      dialog.close();
+    if (open) {
+      // Reopened before a pending close finished: snap back to visible.
+      setClosing(false);
+      if (!dialog.open) {
+        returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        dialog.showModal();
+        initialFocusRef?.current?.focus();
+      }
+    } else if (dialog.open) {
+      // Play the panel's exit animation, then actually close the native dialog.
+      setClosing(true);
+      const timer = window.setTimeout(() => {
+        dialog.close();
+      }, CLOSE_MS);
+      return () => window.clearTimeout(timer);
     }
   }, [open, initialFocusRef]);
 
@@ -106,11 +119,17 @@ export function Dialog({
       }}
       className={cn(
         "m-auto w-[calc(100%-2rem)] overflow-visible bg-transparent p-0 text-text",
-        "backdrop:bg-[rgb(17_24_20/0.45)] open:animate-dialog-in",
+        "backdrop:bg-[rgb(32_40_42/0.5)] backdrop:backdrop-blur-sm",
         widths[size],
       )}
     >
-      <div className={cn("rounded-lg border border-border bg-bg shadow-[0_8px_24px_rgb(17_24_20/0.12)]", className)}>
+      <div
+        className={cn(
+          "rounded-xl border border-border bg-bg shadow-elevated",
+          closing ? "animate-dialog-out" : "animate-dialog-in",
+          className,
+        )}
+      >
         <div className="flex items-start justify-between gap-4 px-5 pt-5">
           <div className="min-w-0">
             <h2

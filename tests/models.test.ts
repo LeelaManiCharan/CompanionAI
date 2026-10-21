@@ -42,8 +42,8 @@ const T0 = "2024-05-01T10:00:00.000Z";
 const T1 = "2024-05-01T10:00:01.000Z";
 
 describe("models", () => {
-  it("uses schema version 1", () => {
-    expect(SCHEMA_VERSION).toBe(1);
+  it("uses schema version 3", () => {
+    expect(SCHEMA_VERSION).toBe(3);
   });
 
   it("accepts only UTC millisecond timestamps", () => {

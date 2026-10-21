@@ -2,13 +2,13 @@
 
 ## Overview
 
-AI Companion Check-in is a browser-first Next.js 15 app deployed on Vercel. Everything the user owns (Profiles, Chats, Memories, Activity_Logs, Settings) lives in IndexedDB. The server side is two stateless route handlers: `/api/generate` (Gemini proxy holding `GEMINI_API_KEY`) and `/api/provider-status`. Ollama is called straight from the browser. Backups are encrypted in the browser (AES-GCM, PBKDF2-derived key) and uploaded directly to the user's own Supabase Storage bucket.
+AI Companion Check-in is a browser-first Next.js 15 app deployed on Vercel. Everything the user owns (Profiles, Chats, Memories, Activity_Logs, Settings) lives in IndexedDB. The server side is two stateless route handlers: `/api/generate` (Gemini proxy holding `GEMINI_API_KEY`) and `/api/provider-status`. Ollama is called straight from the browser. Backups are encrypted in the browser (AES-GCM, PBKDF2-derived key) and uploaded directly to Supabase Storage. Since Req 22, the whole app and both routes sit behind Supabase Auth (email + password, cookie session via `@supabase/ssr`), IndexedDB is scoped per user (`companion-<userId>`), and a small `user_preferences` row syncs the Primary_Profile's settings across browsers (see [Authentication](#authentication-req-22)).
 
 Design goals:
 
 - **Pure core, thin shell.** Validation, context building, memory merging/forgetting, scheduling, safety normalization, serialization, and crypto framing are pure TypeScript modules under `src/core/`. React, IndexedDB, Web Speech, and network calls sit in adapters around them. This is what makes the PBT properties cheap and meaningful.
 - **One write path.** Every Local_Store write goes through a repository that validates with zod (Req 19.10–19.12), stamps the operation's `profileId`, runs in a single IDB transaction, and broadcasts the change to other tabs.
-- **Zero-cost, zero-secret client.** No API key in the bundle; the only user-held credential is the Supabase anon key in the browser-level record.
+- **Zero-cost, zero-secret client.** No secret in the bundle. The only values shipped to the browser are the public `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` (protected by RLS) and the user's own session cookies; an optional manual Cloud_Store override still lives in the browser-level record.
 
 ### Key research findings
 
@@ -107,7 +107,11 @@ src/app/               layout.tsx, globals.css, page.tsx (Home), chat/page.tsx,
                        memories/page.tsx, activity/page.tsx, profiles/page.tsx,
                        api/generate/route.ts, api/provider-status/route.ts
 src/core/              pure logic (no DOM, no IDB) — all PBT targets
-src/server/            gemini client, rate limiter, request schema, safe logger
+src/middleware.ts      Supabase session refresh + /login redirect (Req 22)
+src/app/(auth)         login/, signup/, reset-password/ pages (Req 22)
+src/lib/supabase/      env.ts, client.ts, server.ts, middleware.ts (Req 22)
+supabase/schema.sql    user_preferences table, RLS, bucket + storage policies
+src/server/            gemini client, rate limiter, request schema, safe logger, auth
 src/data/              idb schema, migrations, repository, live-query hook
 src/services/          chat, voice, memory, activity, scheduler, notifications,
                        backup, tab coordinator, model router + providers
@@ -128,6 +132,7 @@ tests/                 *.test.ts (unit) and *.property.test.ts (fast-check)
 | idb | 8.0.4 | | @types/node | 20.19.43 |
 | zod | 3.25.76 | | @types/dom-speech-recognition | 0.0.12 |
 | @supabase/supabase-js | 2.118.0 | | tailwindcss / @tailwindcss/postcss | 4.3.3 |
+| @supabase/ssr | 0.12.7 | | | |
 | geist | 1.8.1 | | postcss | 8.5.30 |
 | | | | vitest | 5.0.5 |
 | | | | fast-check | 4.10.2 |
@@ -182,7 +187,8 @@ Selection logic (pure, `src/core/providerSelect.ts`): `select(mode, health, gemi
 
 1. Content-Type is not `application/json` → 415 `unsupported_media_type`.
 2. `GEMINI_API_KEY` empty → 503 `gemini_not_configured` (6A.8).
-3. Rate_Limiter (sliding window, `Map<ip, number[]>`, 20 per 60 s; IP from first `x-forwarded-for` entry, else `x-real-ip`, else `"unknown"`) → 429 `rate_limited_local` + `Retry-After` (6A.5, 6A.6).
+2a. Auth: `deps.getUser()` (default: `createServerSupabase().auth.getUser()` from request cookies) returns no user → 401 `unauthorized`, zero Gemini calls (22.6). Runs after the method check and before body parsing.
+3. Rate_Limiter (sliding window, `Map<key, number[]>`, 20 per 60 s; key = `user:<id>` when verified, else IP from first `x-forwarded-for` entry, else `x-real-ip`, else `"unknown"`) → 429 `rate_limited_local` + `Retry-After` (6A.5, 6A.6, 22.7).
 4. `Content-Length` > 65,536 → 413 before reading; otherwise stream-read the body with a byte counter and abort at 65,537 bytes → 413 (6A.2).
 5. `JSON.parse` failure → 400 `invalid_json`; zod `GenerateRequestSchema.strict()` failure → 400 `invalid_request` with `fields: string[]` (issue paths) (6A.3, 6A.4).
 6. Call Gemini with `x-goog-api-key` header and `AbortSignal.timeout(50_000)`: abort → 504 `upstream_timeout`; 429 or `RESOURCE_EXHAUSTED` → 429 `gemini_quota`; other non-2xx → 502 `upstream_error`; success → 200 `{ text }` (6A.7, 6A.9, 6A.10).
@@ -200,7 +206,7 @@ const GenerateRequestSchema = z.object({
 
 Gemini mapping: `companion → model`; consecutive same-role turns are merged; a leading `model` turn gets a synthetic `user` turn `"(conversation start)"` because Gemini expects the conversation to begin with a user turn. `extract_memories` sets `generationConfig.responseMimeType = "application/json"`.
 
-Key hygiene (6A.11, 6A.12): the key is read from `process.env` inside the handler, only placed in a header, and never interpolated into strings. `safeLog({ route, status, code, task, ms })` is the only logger and accepts only those fields. Upstream bodies are read only to detect `RESOURCE_EXHAUSTED` and then dropped. `/api/provider-status` exports `GET` → `{ geminiAvailable: boolean, model: string }` and 405 `Allow: GET` for other methods (6A.14).
+Key hygiene (6A.11, 6A.12): the key is read from `process.env` inside the handler, only placed in a header, and never interpolated into strings. `safeLog({ route, status, code, task, ms })` is the only logger and accepts only those fields. Upstream bodies are read only to detect `RESOURCE_EXHAUSTED` and then dropped. `/api/provider-status` exports `GET` → `{ geminiAvailable: boolean, model: string }` (401 `unauthorized` without a valid session, 22.6) and 405 `Allow: GET` for other methods (6A.14).
 
 ### Context_Builder (Req 2.4, 9, 14.4, 15.1, 15.4, 6.24)
 
@@ -317,6 +323,14 @@ stateDiagram-v2
 
 `muted` is an orthogonal flag: while muted the recognizer is stopped (not just ignored), and unmuting restarts it. Microphone permission is requested with `getUserMedia({audio:true})` (tracks stopped right away) before the recognizer starts. Late replies (15–60 s) are stored and captioned. They are spoken only if no `speechstart` occurred after the fallback caption (5.13, 5.14). Echo guard: a final transcript within 2 s of the end of speech that normalizes equal to the last spoken text is dropped. Switching Profile triggers `endCall()` and awaits the transcript save first (20.6).
 
+### Reminders (Req 24)
+
+- Model: `ReminderSchema` `{ id, profileId, chatId|null, text (1–200 trimmed), dueAt, createdAt, status: pending|fired|done|cancelled, firedAt|null }`. `SCHEMA_VERSION = 2`; migration 2 creates `reminders` (keyPath `id`, index `byProfileDue` on `[profileId, dueAt]`). Backups still carry the v1 data sections, so v1 and v2 documents are both readable; reminders are not backed up. A restore clears the store.
+- Detection (`src/core/reminders.ts`, pure): `mightBeReminder(text)` regex pre-filter; `buildReminderRequest({ userText, nowIso, timeZone, localNow })` → task `extract_reminder` (JSON mime for Gemini, `format: "json"` for Ollama); `parseReminder(raw, timeZone, nowMs)` → `{ text, dueAt } | null` via `resolveLocalTime`, rejecting past or > 30 days.
+- Chat flow: `generateReply` runs extraction (8 s timeout, errors ignored) before the reply, stores the Reminder, and passes `reminderSet: { text, dueLocal }` to `buildContext`, which adds a "Reminder:" instruction section. Voice uses the same path through `requestReply`.
+- Firing: the leader tab's scheduler tick reads pending reminders of the Active_Profile; due > 6 h ago → `done`; otherwise persist `fired` + `firedAt`, then set prompt `{ kind: "reminder", reminderId, text }` and `showReminder` (tag `reminder-{id}`, `data.url = /call?from=reminder&reminder={id}`). The service worker forwards `data.url` in its `open-call` message.
+- Call: `/call` reads `reminder`; the controller greets with `reminderGreeting(...)` and marks the Reminder `done` once the call's Chat is created.
+
 ### Backup_Serializer, crypto, Backup_Service (Req 7.9, 17, 18, 19.14–19.15)
 
 ```ts
@@ -334,7 +348,7 @@ type BackupError =
 - Document shape: `{ checksum, exportedAt, schemaVersion, data }`. The checksum is SHA-256 hex over the canonical serialization of `{ exportedAt, schemaVersion, data }`, which is everything except the checksum (17.1). Parsing recomputes it.
 - Parse order: size check (> 50 MB, before parsing), JSON, schema version, checksum, required fields (zod, unknown fields stripped), referential integrity, then ≤ 3 profiles (17.4–17.6, 20.27).
 - Encrypted object layout: `"ACB1"` magic (4 B) ‖ PBKDF2 iterations uint32 BE (4 B) ‖ salt (16 B) ‖ IV (12 B) ‖ AES-GCM ciphertext + tag. Salt and IV come from `crypto.getRandomValues`. The default iteration count is 600,000. The passphrase and `CryptoKey` live only in function locals (18.18).
-- Storage path: `{backupNamespaceId}/backup-{yyyyMMddTHHmmssSSSZ}-{rand6}.acb`. The timestamp-prefixed name makes `list(prefix, { limit: 50, sortBy: { column: "name", order: "desc" } })` newest-first (18.6). Size and created time come from the list response.
+- Storage path: `{userId}/{backupNamespaceId}/backup-{yyyyMMddTHHmmssSSSZ}-{rand6}.acb` on the default env project (session-authenticated client, 22.16); `{backupNamespaceId}/…` on a manual override project. The timestamp-prefixed name makes `list(prefix, { limit: 50, sortBy: { column: "name", order: "desc" } })` newest-first (18.6). Size and created time come from the list response.
 - Restore: decrypt, parse, confirm dialog, then one transaction that clears and refills all profile-data stores (`profiles, settings, chats, messages, memories, activityLogs, summaries, profileMeta`) and clears `checkIns`. It leaves `browser` and `backupMeta` untouched, then bumps the epoch (18.8, 19.14, 20.29).
 - Backup_Service blocks every Cloud_Store request when offline, unconfigured, keyless, or when the passphrase length is outside 8–128 (7.3, 18.4, 18.16, 20.16). 401/403 or "Invalid JWT" style responses map to `key_rejected`, with no retry (7.7). Error strings shown to the user pass through `redactSecrets(msg, [anonKey])` (7.8).
 
@@ -364,10 +378,57 @@ Primitives (`src/components/ui/`): `Button` (primary / secondary / ghost / dange
 | `/` Home | Header row: profile name, Bot_Name, ProviderBadge, Help button (top right, always above the fold). Hero card: "Today's check-in" status badge, Preferred_Check_In_Time in mono, primary **Start call** and secondary **Open chat**. A prominent **Back up now** card with last-backup time/size in mono. Recent chats list (≤ 50). Persistent AI disclaimer footer. Inline check-in prompt, storage, and persistence notices. |
 | `/chat`, `/chat/[id]` | Two-column at ≥ 1024 px (chat list rail, conversation); single column on mobile. Message bubbles: user on `accent`, companion on `surface`, mono timestamps. Typing indicator, 4,000-char counter, retry inline alert, "Load earlier" control past 500 messages, ProviderBadge, Help. |
 | `/call` | Full viewport `#0F3D22`, white text. Centered avatar with concentric pulsing ring (steady soft ring while listening, stronger pulse while speaking, static while muted). Bot_Name, mono MM:SS timer, caption region (`aria-live`), and 64 px round Mute (white outline, `aria-pressed`) and End (danger fill) buttons. Help and ProviderBadge sit top right. |
-| `/settings` | Sectioned page with a sticky in-page nav: Companion (name, tone segmented control), Model (provider mode, Ollama URL/model, test buttons, always-visible Gemini privacy + no-auth notice), Activity (consent, toggle, clear), Check-ins & notifications (override time, toggle), Cloud backup (Supabase URL, masked anon key, bucket, namespace id with copy/replace, RLS notice, Backup / Restore / Export / Import), Danger zone (reset profile, delete profile). |
+| `/settings` | Sectioned page with a sticky in-page nav: Companion (name, tone segmented control), Model (provider mode, Ollama URL/model, test buttons, always-visible Gemini privacy + signed-in-users-share-quota notice), Activity (consent, toggle, clear), Check-ins & notifications (override time, toggle), Account (email, sign out), Cloud backup ("Using app Supabase project" by default; optional override: Supabase URL, masked anon key, bucket; namespace id with copy/replace, RLS notice, Backup / Restore / Export / Import), Danger zone (reset profile, delete profile). |
 | `/memories` | Filterable list by category badge, inline edit with 500-char counter, delete with confirm. Profile_Summary editor (1,500-char counter). |
 | `/activity` | Table of sessions (mono times and durations), clear-all with confirm, disclosure text. |
 | `/profiles` | Profile cards (≤ 3), create form, select, delete with name-confirm dialog. The zero-profile state also shows Restore/Import with inline Cloud_Store fields (20.21). |
+
+### Authentication (Req 22)
+
+Supabase Auth (email + password) gates the whole app. Sessions live in cookies managed by `@supabase/ssr`, so the middleware, route handlers, and browser all see the same session.
+
+**Environment and setup screen (22.8, 22.9).** `src/lib/supabase/env.ts` exports `getSupabaseEnv(): { url, anonKey } | { missing: string[] }`, reading `process.env.NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` as literal property accesses (so Next inlines them). `GEMINI_API_KEY` / `GEMINI_MODEL` stay server-only as before. `.env.local` (gitignored by the existing `.env*` rule) holds empty placeholders for all four; `.env.example` lists the same names. When `missing` is non-empty, `AppRoot` renders `SetupRequired` (lists variable names only, points to `.env.local` and the README) and the middleware passes requests through untouched.
+
+**Supabase helpers (`src/lib/supabase/`).**
+
+| File | Export | Use |
+|---|---|---|
+| `client.ts` | `getBrowserSupabase()` | Memoized `createBrowserClient(url, anonKey)`; used by AuthProvider, Preferences_Sync, Backup_Service. |
+| `server.ts` | `createServerSupabase()` | `createServerClient` with `cookies()` from `next/headers` (`getAll` / `setAll` in try/catch); used by route handlers. |
+| `middleware.ts` | `updateSession(req)` | `createServerClient` bound to `req.cookies` / `NextResponse` cookies; calls `auth.getUser()` and returns `{ response, user }`. |
+
+**Middleware (`src/middleware.ts`, 22.5).** Calls `updateSession`. Public paths: `/login`, `/signup`, `/reset-password`. No user on a non-public page → redirect `/login?next=<path>`. User on `/login` or `/signup` → redirect `/`. `/api/*` is not redirected (routes return 401 themselves). Matcher excludes `_next/static`, `_next/image`, `favicon.ico`, `sw.js`, and image files.
+
+**Auth pages (22.1–22.3).** Client pages `src/app/(auth)/{login,signup,reset-password}/page.tsx` using the existing `Field`/`TextInput`/`Button` primitives inside a minimal route-group layout (no AppShell). Validation: display name 1–40 trimmed, email via zod, password 8–72. Sign-in failures show one generic message. Reset: `resetPasswordForEmail(email, { redirectTo: origin + "/reset-password" })`; on the `PASSWORD_RECOVERY` auth event the page shows the new-password form and calls `auth.updateUser({ password })`. `AppRoot` skips its DB boot on these paths.
+
+**AuthProvider (`src/components/auth/AuthProvider.tsx`).** Wraps `AppRoot`. On mount: `auth.getUser()`, then `onAuthStateChange`. Exposes `{ status: "loading" | "signed_in" | "signed_out", user, signOut }` via `useAuth()`. `signOut()` (22.4): ends an active call (awaiting transcript save), stops scheduler, activity tracker, and Tab_Coordinator, closes the DB, calls `auth.signOut()`, then `router.replace("/login")`. A `SIGNED_OUT` event from another tab triggers the same teardown.
+
+**Per-user repository init (22.10).** `AppRoot` waits for `status === "signed_in"` and opens `openDatabase(\`companion-${user.id}\`)`; nothing touches IndexedDB before that. Tab_Coordinator channel and lock names get the suffix `:${user.id}` (`companion-db:<id>`, `companion-leader:<id>`, …). A user switch (different id) tears down and re-inits. The legacy `companion` database is left untouched.
+
+**Preferences_Sync (`src/services/preferencesSync.ts`, 22.11–22.15).**
+
+```ts
+type RemotePrefs = { user_id: string; display_name: string; bot_name: string; tone: Tone;
+  provider_mode: ProviderMode; ollama_base_url: string; ollama_model: string;
+  check_in_time_override: string | null; activity_tracking_enabled: boolean;
+  notifications_enabled: boolean; updated_at: string };
+function toRemote(userId: string, p: Profile, s: Settings): RemotePrefs;          // pure
+function fromRemote(r: RemotePrefs): { displayName: string; settings: Partial<Settings> }; // pure, invalid → defaults
+function seedPrimaryProfile(repo, sb, user): Promise<void>;   // zero profiles → create from remote or signup metadata, upsert back
+function reconcile(repo, sb, user): Promise<void>;            // startup last-write-wins by updated_at vs settings.updatedAt
+function pushPreferences(repo, sb, user, profileId): Promise<Result<void, "sync_failed">>;
+```
+
+Primary_Profile = oldest `createdAt` (ties by id). `pushPreferences` runs after a successful local commit of the profile name or a synced Settings field, and only for the Primary_Profile; `sync_failed` shows a quiet dismissible `AppNotices` entry and never rolls back the local save. Upsert uses `onConflict: "user_id"`. Only the leader tab reconciles at startup.
+
+**Route auth check (22.6, 22.7).** `src/server/auth.ts` exports `requireUser(): Promise<{ id: string } | null>` (uses `createServerSupabase().auth.getUser()`, which revalidates with Supabase rather than trusting the cookie JWT). `handleGenerate` and the provider-status handler receive it as an injected dep, return 401 `{ error: { code: "unauthorized" } }` when null, and pass `user:<id>` to the limiter. The browser providers map 401 to a "Session expired, sign in again" error that links to `/login`.
+
+**Backup under the user's account (22.16).** `cloudConfig()` resolves to the env project + bucket `companion-backups` unless a manual override is saved. For the env project, Backup_Service uses `getBrowserSupabase()` (session JWT attached automatically) and prefixes paths with `${user.id}/`. The existing 30 s timeout fetch wrapper is kept for the override client.
+
+**`supabase/schema.sql` (22.11, 22.16, 22.17).** Idempotent (`create table if not exists`, `drop policy if exists` before `create policy`, `insert into storage.buckets … on conflict do nothing`):
+
+- `public.user_preferences` with the columns above, `user_id uuid primary key references auth.users on delete cascade`, check constraints for tone / provider_mode / HH:MM, RLS on, select/insert/update policies `using (auth.uid() = user_id)` / `with check (auth.uid() = user_id)`.
+- Private bucket `companion-backups`; `storage.objects` select/insert/update/delete policies for `authenticated` with `bucket_id = 'companion-backups' and (storage.foldername(name))[1] = auth.uid()::text`.
 
 ## Data Models
 
@@ -624,6 +685,10 @@ Errors are typed values (`Result<T, E>`), not thrown strings, from the repositor
 | Gemini route | 429 `rate_limited_local` / `gemini_quota` | "Hosted model is busy…" + retry; local limit shows Retry-After (6.18) | — |
 | Gemini route | 503 / status unavailable | Gemini shown unavailable; zero generate calls (6.17) | — |
 | Any provider | timeout, upstream, empty reply | "Couldn't get a reply from {provider}" + retry (4.7, 6.11, 6.19, 20.25) | User message kept, no companion message |
+| Routes | 401 `unauthorized` | "Session expired, sign in again" with link to /login (22.6) | User message kept |
+| Auth | sign-in / sign-up / reset failure | Generic credential message or network error (22.2) | No session change |
+| Preferences_Sync | `sync_failed` | Quiet dismissible notice (22.13) | Local save kept |
+| Env | Supabase vars missing | Setup_Screen listing variable names (22.9) | No Supabase or IDB calls |
 | Privacy gate | `notice_declined` | Inline explanation (6.22) | Zero route requests |
 | Safety + failure | flagged and failed | Static 988 fallback reply shown; Crisis panel stays (14.8) | — |
 | Voice | unsupported / mic denied / 3 recognizer failures | Explanation + "Open chat" button (5.9, 5.10, 5.12) | Transcript so far saved |

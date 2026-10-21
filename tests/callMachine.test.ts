@@ -100,9 +100,10 @@ describe("callMachine fallback and late replies", () => {
       listeningCall(),
       { type: "finalTranscript", text: "Tell me a story", at: 5_000 },
       { type: "fallbackTimeout", requestId: 1, at: 20_000 },
+      { type: "speechEnd", at: 21_000 }, // the in-character fallback line is spoken first
     );
 
-  it("shows the fallback caption and resumes listening at 15 s", () => {
+  it("speaks the fallback line and resumes listening at 15 s", () => {
     const r = timedOut();
     expect(r.state.phase).toBe("listening");
     expect(r.state.caption).toBe(FALLBACK_CAPTION);

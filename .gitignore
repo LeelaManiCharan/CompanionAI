@@ -13,6 +13,9 @@ coverage
 # vercel
 .vercel
 
+# local test-report output
+.vitest
+
 # env files (never commit secrets)
 .env*
 !.env.example

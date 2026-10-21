@@ -170,8 +170,8 @@ export function useFieldControl(opts: {
 
 /** Shared control surface styles (inputs, textareas, selects). */
 export const controlClasses =
-  "w-full rounded-md border border-border bg-bg text-[15px] text-text shadow-card transition-colors duration-150 " +
-  "placeholder:text-muted/70 hover:border-muted/60 " +
-  "focus-visible:border-primary " +
+  "w-full rounded-md border border-border bg-bg text-[15px] text-text shadow-card transition-all duration-200 " +
+  "placeholder:text-muted/70 hover:border-primary/40 " +
+  "focus-visible:border-primary focus-visible:shadow-glow focus-visible:outline-none " +
   "disabled:cursor-not-allowed disabled:bg-bg-subtle disabled:text-muted " +
-  "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger";
+  "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger aria-invalid:focus-visible:shadow-none";

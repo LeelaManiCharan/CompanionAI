@@ -21,6 +21,7 @@ import {
   IconMessage,
   IconTrash,
   InlineAlert,
+  Reveal,
   SegmentedControl,
   Select,
   Skeleton,
@@ -62,7 +63,7 @@ export default function MemoriesPage() {
   return (
     <AppShell width="narrow">
       <header className="flex flex-col gap-1.5">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Memories</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-gradient-brand">Memories</p>
         <h1 className="text-[28px] leading-tight tracking-[-0.03em] text-text">What {botName} remembers</h1>
         <p className="max-w-xl text-muted">
           Things {botName} picked up from your chats with {profile.displayName}. Everything here stays on this device,
@@ -71,7 +72,9 @@ export default function MemoriesPage() {
       </header>
 
       <div className="mt-8 flex flex-col gap-10">
-        <SummaryCard profileId={profileId} botName={botName} canWrite={canWrite} />
+        <Reveal>
+          <SummaryCard profileId={profileId} botName={botName} canWrite={canWrite} />
+        </Reveal>
 
         <section aria-labelledby="memories-title">
           <div className="flex items-baseline justify-between gap-3">
@@ -95,7 +98,9 @@ export default function MemoriesPage() {
           </div>
         </section>
 
-        <ForgetEverything profileId={profileId} profileName={profile.displayName} botName={botName} canWrite={canWrite} />
+        <Reveal>
+          <ForgetEverything profileId={profileId} profileName={profile.displayName} botName={botName} canWrite={canWrite} />
+        </Reveal>
       </div>
     </AppShell>
   );
@@ -145,7 +150,7 @@ function SummaryCard({ profileId, botName, canWrite }: { profileId: string; botN
 
   return (
     <Card as="section" aria-labelledby="summary-title" className="overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-bg-subtle px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 pb-3 pt-5">
         <div className="min-w-0">
           <h2 id="summary-title" className="text-base tracking-[-0.02em] text-text">
             Profile summary
@@ -323,19 +328,20 @@ function MemoryList({
         />
       ) : (
         <ul className="mt-4 flex flex-col gap-3" aria-label="Memories, newest first">
-          {visible.map((m) => (
-            <MemoryItem
-              key={m.id}
-              memory={m}
-              editing={editingId === m.id}
-              canWrite={canWrite}
-              onEdit={() => setEditingId(m.id)}
-              onDone={() => setEditingId(null)}
-              onDelete={() => {
-                setDeleteError(null);
-                setPendingDelete(m);
-              }}
-            />
+          {visible.map((m, i) => (
+            <Reveal key={m.id} as="li" delay={Math.min(i, 6) * 40}>
+              <MemoryItem
+                memory={m}
+                editing={editingId === m.id}
+                canWrite={canWrite}
+                onEdit={() => setEditingId(m.id)}
+                onDone={() => setEditingId(null)}
+                onDelete={() => {
+                  setDeleteError(null);
+                  setPendingDelete(m);
+                }}
+              />
+            </Reveal>
           ))}
         </ul>
       )}
@@ -409,8 +415,7 @@ function MemoryItem({
 
   return (
     <Card
-      as="li"
-      className={editing ? "border-primary/40! ring-1 ring-primary/15" : "transition-colors hover:border-muted/50!"}
+      className={editing ? "border-primary/40! shadow-glow! ring-1 ring-primary/15" : "transition-all duration-300 hover:border-muted/50!"}
     >
       {editing ? (
         <MemoryEditor memory={memory} canWrite={canWrite} onDone={onDone} />
