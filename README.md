@@ -16,20 +16,25 @@ npm run dev                  # http://localhost:3000
 
 ## Deploy to Vercel
 
-1. Push this repo to GitHub, then in Vercel choose **Add New → Project** and import it. The framework (Next.js) is detected automatically.
-2. In **Project → Settings → Environment Variables**, add:
+1. Push this repo to GitHub, then in Vercel choose **Add New → Project** and import it. The framework (Next.js) is detected automatically; no `vercel.json` is needed.
+2. Create a Supabase project (if you don't have one yet) at [supabase.com](https://supabase.com) — this is the project used for **sign-in**, separate from any per-browser cloud-backup project a user enters later in Settings. In **Authentication → Providers**, email/password sign-up is on by default.
+3. In **Project → Settings → Environment Variables** on Vercel, add:
 
    | Name | Required | Value |
    | --- | --- | --- |
-   | `GEMINI_API_KEY` | Yes, for the hosted fallback | Free key from [Google AI Studio](https://aistudio.google.com/app/apikey) |
+   | `NEXT_PUBLIC_SUPABASE_URL` | **Yes** | Supabase dashboard → Project Settings → API → Project URL. Without this (and the anon key below), every page shows the setup screen instead of the app |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes** | Same page → Project API keys → anon / publishable key. Never put the `service_role` key here |
+   | `GEMINI_API_KEY` | Recommended | Free key from [Google AI Studio](https://aistudio.google.com/app/apikey), for the hosted reply fallback. Without it, replies only work when a visitor is running Ollama locally (see below) |
    | `GEMINI_MODEL` | No | Defaults to `gemini-flash-latest`. Preferred model for chat replies |
    | `GEMINI_FALLBACK_MODELS` | No | Comma list tried in order when a model returns 429 (quota) or 404. Defaults to `gemini-flash-lite-latest` |
    | `GEMINI_LITE_MODEL` | No | Tried first for background tasks (memory/reminder extraction, summaries, connection tests). Defaults to `gemini-flash-lite-latest` |
 
    Free-tier note: each Gemini model has its own small free quota, and one chat message can trigger a few calls (reply plus background extraction). When a model hits its quota, `/api/generate` skips it for the `retryDelay` Google returns (60 s if none) and uses the next model in the chain. `gemini-flash-lite-latest` has a separate quota from `gemini-flash-latest`, so keeping it as a fallback helps. `gemini-2.5-flash*` ids may return 404 for new API keys.
 
-   Never prefix these with `NEXT_PUBLIC_`. That would ship the key to every browser. The key is only read server-side by `/api/generate`.
-3. Redeploy after adding or changing environment variables. Existing deployments don't pick them up.
+   Never prefix the Gemini key with `NEXT_PUBLIC_`. That would ship it to every browser. It's only read server-side, by `/api/generate` and `/api/provider-status`. The two `NEXT_PUBLIC_SUPABASE_*` values are not secret — they're a public project URL and a publishable anon key, safe to ship to the browser (access is enforced by Supabase Row Level Security, not by hiding this key).
+4. Set each variable for **Production**, and again for **Preview** if you want preview deployments to work the same way (a separate Supabase project per environment is fine too).
+5. In Supabase, open **Authentication → URL Configuration** and add your Vercel domain (e.g. `https://your-app.vercel.app/**`) to **Redirect URLs**, and set **Site URL** to it too. Signup confirmation and password-reset emails link back to whatever origin the browser was on, so without this step those links 404 or redirect to `localhost`.
+6. Deploy. Redeploy after adding or changing environment variables — existing deployments don't pick them up.
 
 ## Using local Ollama with the deployed site
 
